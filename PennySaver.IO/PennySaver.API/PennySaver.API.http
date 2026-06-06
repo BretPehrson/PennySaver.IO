@@ -1,0 +1,6 @@
+@PennySaver.API_HostAddress = http://localhost:5295
+
+GET {{PennySaver.API_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
