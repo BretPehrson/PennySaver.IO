@@ -1,0 +1,49 @@
+version: '3.8'
+
+services:
+  # SQL Server 2022 database
+  sql-server:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: pennysaver-mssql
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_SA_PASSWORD: "PennySaver2025!"
+      MSSQL_PID: "Developer"
+    ports:
+      - "1433:1433"
+    volumes:
+      - sql_data:/var/opt/mssql
+      - ./sql-init:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD", "/opt/mssql-tools18/bin/sqlcmd", "-S", "localhost", "-U", "sa", "-P", "PennySaver2025!", "-Q", "SELECT 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - pennysaver-network
+
+  # Optional: Your .NET API (uncomment when ready to containerize API)
+  # api:
+  #   build:
+  #     context: ./PennySaver.API
+  #     dockerfile: Dockerfile
+  #   container_name: pennysaver-api
+  #   environment:
+  #     - ASPNETCORE_ENVIRONMENT=Development
+  #     - ConnectionStrings__DefaultConnection=Server=sql-server,1433;Database=PennySaverDb;User Id=sa;Password=PennySaver2025!;TrustServerCertificate=True;Encrypt=False
+  #   ports:
+  #     - "5000:8080"
+  #   depends_on:
+  #     sql-server:
+  #       condition: service_healthy
+  #   networks:
+  #     - pennysaver-network
+
+volumes:
+  sql_data:
+    name: sql_data
+    driver: local
+
+networks:
+  pennysaver-network:
+    driver: bridge
