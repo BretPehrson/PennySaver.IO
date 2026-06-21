@@ -1,0 +1,18 @@
+namespace PennySaver.IO;
+
+public class Accounts
+{
+    public enum AccountType
+    {
+        Inflow,
+        Outflow
+    }
+
+    public AccountType Type { get; set; }
+    public int Id { get; set; }
+    public string AccountId { get; set; }
+    public double Amount { get; set; }
+    public DateTime Date { get; set; }
+    public string Description { get; set; }
+    public int CategoryId { get; set; }
+}

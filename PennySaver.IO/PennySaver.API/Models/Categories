@@ -1,0 +1,8 @@
+namespace PennySaver.IO;
+
+public class Category
+{
+    public int Id { get; set; }
+    public string CategoryName { get; set; }
+    public string ColorCode { get; set; }
+}
