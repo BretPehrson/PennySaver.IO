@@ -1,7 +1,5 @@
-version: '3.8'
 
 services:
-  # SQL Server 2022 database
   sql-server:
     image: mcr.microsoft.com/mssql/server:2022-latest
     container_name: pennysaver-mssql
@@ -15,8 +13,10 @@ services:
     volumes:
       - sql_data:/var/opt/mssql
       - ./sql-init:/docker-entrypoint-initdb.d
+      - ./sql-init/entrypoint.sh:/entrypoint.sh
+    entrypoint: /bin/bash /entrypoint.sh
     healthcheck:
-      test: ["CMD", "/opt/mssql-tools18/bin/sqlcmd", "-S", "localhost", "-U", "sa", "-P", "PennySaver2025!", "-Q", "SELECT 1", "-C"]
+      test: ["CMD", "/opt/mssql-tools18/bin/sqlcmd", "-S", "localhost", "-U", "sa", "-P", "PennySaver2025!", "-Q", "SELECT 1"]
       interval: 10s
       timeout: 5s
       retries: 5

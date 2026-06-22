@@ -1,5 +1,5 @@
 -- Starter initialization for PennySaver DB (SQL Server)
--- Creates database, a sample table and seed data
+-- Creates database and tables
 
 SET NOCOUNT ON;
 
@@ -12,20 +12,38 @@ GO
 USE PennySaverDb;
 GO
 
-IF OBJECT_ID('dbo.Items','U') IS NULL
+IF OBJECT_ID('dbo.Account','U') IS NULL
 BEGIN
-    CREATE TABLE dbo.Items (
-        Id INT IDENTITY(1,1) NOT NULL PRIMARY KEY,
-        Name NVARCHAR(200) NOT NULL,
-        Description NVARCHAR(MAX) NULL,
+    CREATE TABLE dbo.Account (
+        AccountId INT IDENTITY(1,1) NOT NULL PRIMARY KEY,
+        [Name] NVARCHAR(200) NOT NULL,
+        [Type] NVARCHAR(MAX) NULL,
+        CurrentBalance DECIMAL(18,2) NOT NULL DEFAULT 0,
         CreatedAt DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME()
     );
 END
 GO
 
-IF NOT EXISTS (SELECT 1 FROM dbo.Items)
+IF OBJECT_ID('dbo.Category','U') IS NULL
 BEGIN
-    INSERT INTO dbo.Items (Name, Description) VALUES
-    (N'Sample Item', N'This is a starter row created by sql-init/01-init.sql');
+    CREATE TABLE dbo.Category (
+        CategoryId INT IDENTITY(1,1) NOT NULL PRIMARY KEY,
+        [Name] NVARCHAR(200) NOT NULL,
+        ColorCode NVARCHAR(7) NULL,
+        CreatedAt DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME()
+    );
+END
+GO
+
+IF OBJECT_ID('dbo.Transaction','U') IS NULL
+BEGIN
+    CREATE TABLE dbo.[Transaction] (
+        TransactionId INT IDENTITY(1,1) NOT NULL PRIMARY KEY,
+        AccountId INT NOT NULL FOREIGN KEY REFERENCES dbo.Account(AccountId),
+        Amount DECIMAL(18,2) NOT NULL,
+        CreatedAt DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME(),
+        [Description] NVARCHAR(MAX) NULL,
+        CategoryId INT NULL FOREIGN KEY REFERENCES dbo.Category(CategoryId)
+    );
 END
 GO
