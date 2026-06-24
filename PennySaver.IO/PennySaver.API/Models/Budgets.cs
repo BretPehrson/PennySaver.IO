@@ -1,4 +1,4 @@
-namespace PennySaver.IO;
+namespace PennySaver.API.Models;
 
 public class Budgets
 {

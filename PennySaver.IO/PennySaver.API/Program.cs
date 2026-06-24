@@ -1,10 +1,17 @@
+using System.Text;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.IdentityModel.Tokens;
+using PennySaver.API.Data;
+using PennySaver.API.Models;
+
 var builder = WebApplication.CreateBuilder(args);
 
-
-
-// Add services to the container.
-// Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
 builder.Services.AddOpenApi();
+
+builder.Services.AddDbContextFactory<PennySaverDbContext>(options =>
+    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection"))
+);
 
 builder.Services.AddCors(options =>
 {
@@ -14,7 +21,62 @@ builder.Services.AddCors(options =>
                         .AllowAnyHeader());
 });
 
+builder.Services.Configure<JwtOptions>(
+    builder.Configuration.GetSection("JwtSettings")
+);
+
+var jwtOptions = builder.Configuration.GetSection("JwtSettings").Get<JwtOptions>() ?? throw new InvalidOperationException("JWT Settings are missing.");
+
+builder.Services.AddAuthentication(options =>
+{
+    options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+    options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+})
+.AddJwtBearer(options =>
+{
+    options.IncludeErrorDetails = true; // Dev, off for Production
+
+    options.MapInboundClaims = false;
+
+    options.TokenValidationParameters = new TokenValidationParameters
+    {
+        ValidateIssuer = true,
+        ValidIssuer = jwtOptions.Issuer,
+
+        ValidateAudience = true,
+        ValidAudience = jwtOptions.Audience,
+        
+        ValidateIssuerSigningKey = true,
+        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtOptions.Key)),
+        
+        ValidateLifetime = true,
+        ClockSkew = TimeSpan.FromSeconds(30),
+
+        RoleClaimType = "role",
+        NameClaimType = "name"
+    };
+});
+
+builder.Services.AddAuthorization(options =>
+{
+    options.AddPolicy("Reports.read", policy => policy.RequireClaim("scope", "Reports.read"));
+});
+builder.Services.AddControllers();
+
 var app = builder.Build();
+
+using (var scope = app.Services.CreateScope())
+{
+    try
+    {
+        var contextFactory = scope.ServiceProvider.GetRequiredService<IDbContextFactory<PennySaverDbContext>>();
+        SeedUsers.Seed(contextFactory);
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine($"An error occurred while seeding the database: {ex.Message}");
+    }
+}
 
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
@@ -24,30 +86,11 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 
+app.UseAuthentication(); 
+app.UseAuthorization();
+
+app.MapControllers();
+
 app.UseCors("AllowReactApp");
 
-var summaries = new[]
-{
-    "Freezing", "Bracing", "Chilly", "Cool", "Mild", "Warm", "Balmy", "Hot", "Sweltering", "Scorching"
-};
-
-app.MapGet("/weatherforecast", () =>
-{
-    var forecast =  Enumerable.Range(1, 5).Select(index =>
-        new WeatherForecast
-        (
-            DateOnly.FromDateTime(DateTime.Now.AddDays(index)),
-            Random.Shared.Next(-20, 55),
-            summaries[Random.Shared.Next(summaries.Length)]
-        ))
-        .ToArray();
-    return forecast;
-})
-.WithName("GetWeatherForecast");
-
 app.Run();
-
-record WeatherForecast(DateOnly Date, int TemperatureC, string? Summary)
-{
-    public int TemperatureF => 32 + (int)(TemperatureC / 0.5556);
-}
