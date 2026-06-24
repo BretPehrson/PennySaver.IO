@@ -75,26 +75,28 @@ public class AuthController(IDbContextFactory<PennySaverDbContext> dbContextFact
             dbContext.SaveChanges();
         }
 
+        SetRefreshTokenCookie(newRefreshToken.Token);
         return Ok(new 
         {
              token = tokenString,
-             refresh_token = newRefreshToken.Token,
              Token_type = "Bearer",
              expires_utc = expires
         });
     }
 
-    public record TokenRefreshDto(string RefreshToken);
 
     [AllowAnonymous]
     [HttpPost("refresh")]
-    public IActionResult Refresh([FromBody] TokenRefreshDto request)
+    public IActionResult Refresh()
     {
+        if (!Request.Cookies.TryGetValue("refreshToken", out var refreshToken) || string.IsNullOrEmpty(refreshToken))
+            return Unauthorized(new { message = "Refresh token is missing." });
+
         using var dbContext = _dbContextFactory.CreateDbContext();
         
         RefreshToken? storedToken = dbContext.RefreshTokens
             .Include(t => t.User)
-            .FirstOrDefault(rt => rt.Token == request.RefreshToken);
+            .FirstOrDefault(rt => rt.Token == refreshToken);
 
         if (storedToken == null || !storedToken.IsActive)
             return Unauthorized(new { message = "Invalid or expired refresh token." });
@@ -132,10 +134,10 @@ public class AuthController(IDbContextFactory<PennySaverDbContext> dbContextFact
         dbContext.RefreshTokens.Add(newRefreshToken);
         dbContext.SaveChanges();
 
+        SetRefreshTokenCookie(newRefreshToken.Token);
         return Ok(new 
         {
             token = newTokenString,
-            refresh_token = newRefreshToken.Token,
             Token_type = "Bearer",
             expires_utc = expires
         });
@@ -147,5 +149,17 @@ public class AuthController(IDbContextFactory<PennySaverDbContext> dbContextFact
         using var rng = RandomNumberGenerator.Create();
         rng.GetBytes(randomBytes);
         return Convert.ToBase64String(randomBytes);
+    }
+
+    private void SetRefreshTokenCookie(string refreshToken)
+    {
+        var cookieOptions = new CookieOptions
+        {
+            HttpOnly = true,
+            Secure = true,
+            SameSite = SameSiteMode.Strict,
+            Expires = DateTime.UtcNow.AddDays(7)
+        };
+        Response.Cookies.Append("refreshToken", refreshToken, cookieOptions);
     }
 }

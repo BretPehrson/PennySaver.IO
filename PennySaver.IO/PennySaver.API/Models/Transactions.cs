@@ -1,14 +1,15 @@
-using System.ComponentModel.DataAnnotations.Schema;
-
 namespace PennySaver.API.Models;
 
 public class Transaction
 {
     public int Id { get; set; }
-    public int AccountId { get; set; }
-    [Column(TypeName = "decimal(18,2)")]
-    public decimal Amount { get; set; }
+    public double Amount { get; set; }
     public DateTime Date { get; set; }
     public string Description { get; set; } = string.Empty;
+
+    public int AccountId { get; set; }
+    public Accounts Account { get; set; } = null!;
+    
     public int CategoryId { get; set; }
+    public Category Category { get; set; } = null!;
 }
