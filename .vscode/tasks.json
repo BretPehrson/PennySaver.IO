@@ -5,7 +5,7 @@
       "label": "build-api",
       "type": "process",
       "command": "dotnet",
-      "args": ["build", "${workspaceFolder}/PennySaver.IO/PennySaver.API/PennySaver.API.csproj"],
+      "args": ["build", "${workspaceFolder}/PennySaver.API/PennySaver.API.csproj"],
       "group": { "kind": "build", "isDefault": true },
       "problemMatcher": "$msCompile"
     },
@@ -13,7 +13,7 @@
       "label": "dev-client",
       "type": "shell",
       "command": "npm run dev",
-      "options": { "cwd": "${workspaceFolder}/PennySaver.IO/PennySaver-Client" },
+      "options": { "cwd": "${workspaceFolder}/PennySaver-Client" },
       "isBackground": true,
       "presentation": { "reveal": "always", "panel": "shared" }
     },
@@ -21,7 +21,7 @@
       "label": "test-dotnet",
       "type": "process",
       "command": "dotnet",
-      "args": ["test", "${workspaceFolder}/PennySaver.IO/PennySaver.Tests/PennySaver.Tests.csproj"],
+      "args": ["test", "${workspaceFolder}/PennySaver.Tests/PennySaver.Tests.csproj"],
       "group": "test",
       "problemMatcher": "$msCompile"
     }

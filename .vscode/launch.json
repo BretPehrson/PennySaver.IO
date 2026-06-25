@@ -6,8 +6,8 @@
       "type": "coreclr",
       "request": "launch",
       "preLaunchTask": "build-api",
-      "program": "${workspaceFolder}/PennySaver.IO/PennySaver.API/bin/Debug/net10.0/PennySaver.API.dll",
-      "cwd": "${workspaceFolder}/PennySaver.IO/PennySaver.API",
+      "program": "${workspaceFolder}/PennySaver.API/bin/Debug/net10.0/PennySaver.API.dll",
+      "cwd": "${workspaceFolder}/PennySaver.API",
       "stopAtEntry": false,
       "serverReadyAction": {
         "action": "openExternally",
@@ -18,7 +18,7 @@
         "ASPNETCORE_ENVIRONMENT": "Development"
       },
       "sourceFileMap": {
-        "/Views": "${workspaceFolder}/PennySaver.IO/PennySaver.API/Views"
+        "/Views": "${workspaceFolder}/PennySaver.API/Views"
       }
     },
     {
@@ -27,7 +27,7 @@
       "request": "launch",
       "preLaunchTask": "dev-client",
       "url": "http://localhost:5173",
-      "webRoot": "${workspaceFolder}/PennySaver.IO/PennySaver-Client"
+      "webRoot": "${workspaceFolder}/PennySaver-Client"
     }
   ],
   "compounds": [
