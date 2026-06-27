@@ -1,6 +1,3 @@
-using Microsoft.EntityFrameworkCore;
-using PennySaver.API.Models;
-
 namespace PennySaver.API.Data;
 
 public class PennySaverDbContext(DbContextOptions<PennySaverDbContext> options) 

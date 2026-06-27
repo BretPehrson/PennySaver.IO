@@ -1,16 +1,3 @@
-using System.IdentityModel.Tokens.Jwt;
-using System.Text;
-using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Mvc;
-using Microsoft.Extensions.Options;
-using Microsoft.IdentityModel.Tokens;
-using PennySaver.API.Models;
-using Microsoft.EntityFrameworkCore;
-using PennySaver.API.Data;
-using Microsoft.AspNetCore.Identity;
-using System.Security.Claims;
-using System.Security.Cryptography;
-
 namespace PennySaver.API.Controllers;
 
 [ApiController]

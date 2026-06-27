@@ -1,10 +1,5 @@
-using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using PennySaver.API.Data;
-using PennySaver.API.Models;
-
 namespace PennySaver.API.Controllers;
+
 [Authorize]
 [ApiController]
 [Route("api/[controller]")]
