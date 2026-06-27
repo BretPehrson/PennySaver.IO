@@ -36,6 +36,10 @@ public class CategoriesController(IDbContextFactory<PennySaverDbContext> dbConte
     {
         category.UserId = GetCurrentUserId();
         using var context = await _context.CreateDbContextAsync();
+        
+        bool exists = await context.Categories.AnyAsync(c => c.CategoryName == category.CategoryName && c.UserId == category.UserId);
+        if (exists) return BadRequest("Category with the same name already exists for this user.");
+
         context.Categories.Add(category);
         await context.SaveChangesAsync();
         

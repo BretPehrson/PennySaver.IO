@@ -2,25 +2,8 @@ namespace PennySaver.Tests.Controllers;
 
 public class AccountsControllerTests
 {
-    public static ControllerContext GetControllerContext(int userId)
-    {
-        var user = new List<Claim> 
-        {
-             new(JwtRegisteredClaimNames.Sub, userId.ToString()),
-             new(ClaimTypes.NameIdentifier, userId.ToString())
-        };
-        
-        var identity = new ClaimsIdentity(user, "TestAuth");
-        var claimsPrincipal = new ClaimsPrincipal(identity);
-
-        return new ControllerContext
-        {
-            HttpContext = new DefaultHttpContext { User = claimsPrincipal }
-        };
-    }
-
     [Fact]
-    public async Task Accounts_GetAll_ReturnsOnlyLoggedInUserAccounts()
+    public async Task GetAll_ReturnsOnlyLoggedInUserAccounts()
     {
         var context = TestDbContextFactory.Create(Guid.NewGuid().ToString());
         using (var seedContext = context.CreateDbContext())
@@ -36,7 +19,7 @@ public class AccountsControllerTests
 
         var controller = new AccountsController(context)
         {
-            ControllerContext = GetControllerContext(111)
+            ControllerContext = TestAuthHelper.GetControllerContext(111)
         };
 
         var result = await controller.GetAll();
@@ -49,12 +32,12 @@ public class AccountsControllerTests
     }
 
     [Fact]
-    public async Task Accounts_Create_ForcesOwnershipToLoggedInUser()
+    public async Task Create_ForcesOwnershipToLoggedInUser()
     {
         var context = TestDbContextFactory.Create(Guid.NewGuid().ToString());
         var controller = new AccountsController(context)
         {
-            ControllerContext = GetControllerContext(111)
+            ControllerContext = TestAuthHelper.GetControllerContext(111)
         };
 
         var incomingPayLoad = new Accounts
@@ -73,7 +56,7 @@ public class AccountsControllerTests
     }
 
     [Fact]
-    public async Task Transactions_Create_Fails_WhenAccountBelongsToAnotherUser()
+    public async Task Create_Fails_WhenAccountBelongsToAnotherUser()
     {
         var context = TestDbContextFactory.Create(Guid.NewGuid().ToString());
         using (var seedContext = context.CreateDbContext())
@@ -85,7 +68,7 @@ public class AccountsControllerTests
 
         var controller = new TransactionsController(context)
         {
-            ControllerContext = GetControllerContext(111)
+            ControllerContext = TestAuthHelper.GetControllerContext(111)
         };
 
         var incomingPayLoad = new Transaction
