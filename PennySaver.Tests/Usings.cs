@@ -1,2 +1,10 @@
 global using Microsoft.EntityFrameworkCore;
 global using PennySaver.API.Data;
+global using Microsoft.AspNetCore.Http;
+global using Microsoft.AspNetCore.Mvc;
+global using System.Security.Claims;
+global using System.IdentityModel.Tokens.Jwt;
+global using PennySaver.API.Controllers;
+global using PennySaver.API.Models;
+global using Xunit;
+global using PennySaver.Tests.Data;

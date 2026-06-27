@@ -1,6 +1,6 @@
 namespace PennySaver.API.Controllers
 {
-    //[Authorize]
+    [Authorize]
     [ApiController]
     [Route("api/[controller]")]
     public class AccountsController(IDbContextFactory<PennySaverDbContext> dbContext) : ControllerBase
