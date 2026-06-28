@@ -8,8 +8,9 @@ public class Accounts
         Outflow
     }
 
-    public AccountType Type { get; set; }
+    [Key]
     public int Id { get; set; }
+    public AccountType Type { get; set; }
     public string AccountName { get; set; } = string.Empty;
     
     public int UserId { get; set; }

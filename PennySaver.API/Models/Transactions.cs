@@ -9,6 +9,7 @@ public enum TransactionStatus
 
 public class Transaction
 {
+    [Key]
     public int Id { get; set; }
     [Required]
     public double Amount { get; set; }
