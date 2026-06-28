@@ -10,3 +10,4 @@ global using Microsoft.AspNetCore.Identity;
 global using System.IdentityModel.Tokens.Jwt;
 global using Microsoft.IdentityModel.Tokens;
 global using Microsoft.Extensions.Options;
+global using System.ComponentModel.DataAnnotations;

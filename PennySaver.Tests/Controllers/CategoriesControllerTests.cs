@@ -3,7 +3,7 @@ namespace PennySaver.Tests.Controllers;
 public class CategoriesControllerTests
 {
     [Fact]
-    public async Task Verify_Fail_When_Adding_Same_Category_Twice_For_Same_User()
+    public async Task Verify_Fail_WhenAddingSameCategoryTwiceForSameUser()
     {
         var context = TestDbContextFactory.Create(Guid.NewGuid().ToString());
         using (var seedContext = context.CreateDbContext())
@@ -30,7 +30,7 @@ public class CategoriesControllerTests
     }
 
     [Fact]
-    public async Task Verify_Fail_When_User_Tries_To_Delete_Category_That_Does_Not_Belong_To_Them()
+    public async Task Verify_Fail_WhenUserTriesToDeleteCategoryThatDoesNotBelongToThem()
     {
         var context = TestDbContextFactory.Create(Guid.NewGuid().ToString());
         using (var seedContext = context.CreateDbContext())
@@ -50,7 +50,7 @@ public class CategoriesControllerTests
     }
 
     [Fact]
-    public async Task Verify_Fail_When_User_Tries_To_Update_Category_That_Does_Not_Belong_To_Them()
+    public async Task Verify_Fail_WhenUserTriesToUpdateCategoryThatDoesNotBelongToThem()
     {
         var context = TestDbContextFactory.Create(Guid.NewGuid().ToString());
         using (var seedContext = context.CreateDbContext())
@@ -77,7 +77,7 @@ public class CategoriesControllerTests
     }
 
     [Fact]
-    public async Task Verify_New_Category_Is_Retrieved_By_GetById()
+    public async Task Verify_NewCategoryIsRetrievedByGetById()
     {
         var context = TestDbContextFactory.Create(Guid.NewGuid().ToString());
         using (var seedContext = context.CreateDbContext())
@@ -100,7 +100,7 @@ public class CategoriesControllerTests
     }
 
     [Fact]
-    public async Task Verify_All_New_Categories_Are_Retrieved_By_GetAll()
+    public async Task Verify_AllNewCategoriesAreRetrievedByGetAll()
     {
         var context = TestDbContextFactory.Create(Guid.NewGuid().ToString());
         using (var seedContext = context.CreateDbContext())
@@ -138,7 +138,7 @@ public class CategoriesControllerTests
     }
 
     [Fact]
-    public async Task Verify_Category_Is_Deleted_Successfully()
+    public async Task Verify_CategoryIsDeletedSuccessfully()
     {
         var context = TestDbContextFactory.Create(Guid.NewGuid().ToString());
         using (var seedContext = context.CreateDbContext())
@@ -161,7 +161,7 @@ public class CategoriesControllerTests
     }
 
     [Fact]
-    public async Task Verify_Category_Is_Updated_Successfully()
+    public async Task Verify_CategoryIsUpdatedSuccessfully()
     {
         var context = TestDbContextFactory.Create(Guid.NewGuid().ToString());
         using (var seedContext = context.CreateDbContext())

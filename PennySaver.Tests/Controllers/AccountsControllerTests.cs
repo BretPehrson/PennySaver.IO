@@ -75,6 +75,7 @@ public class AccountsControllerTests
         {
             Id = 1,
             Amount = 100,
+            Date = DateTime.Now,
             AccountId = 20, // Belongs to user 999
             CategoryId = 10 // Belongs to user 111, but account ownership should be checked first
         };
@@ -82,5 +83,64 @@ public class AccountsControllerTests
         var result = await controller.Create(incomingPayLoad);
 
         Assert.IsType<BadRequestObjectResult>(result);
+    }
+
+    [Fact]
+    public async Task Create_Fails_WhenCategoryBelongsToAnotherUser()
+    {
+        var context = TestDbContextFactory.Create(Guid.NewGuid().ToString());
+        using (var seedContext = context.CreateDbContext())
+        {
+            seedContext.Categories.Add(new Category { Id = 10, UserId = 999, CategoryName = "Malicious Category" });
+            seedContext.Accounts.Add(new Accounts { Id = 20, UserId = 111, AccountName = "User 111 Account" });
+            await seedContext.SaveChangesAsync();
+        }
+
+        var controller = new TransactionsController(context)
+        {
+            ControllerContext = TestAuthHelper.GetControllerContext(111)
+        };
+
+        var incomingPayLoad = new Transaction
+        {
+            Id = 1,
+            Amount = 100,
+            AccountId = 20, // Belongs to user 111
+            CategoryId = 10 // Belongs to user 999
+        };
+
+        var result = await controller.Create(incomingPayLoad);
+
+        Assert.IsType<BadRequestObjectResult>(result);
+    }
+
+    [Fact]
+    public async Task Create_Succeeds_WhenAccountAndCategoryBelongToLoggedInUser()
+    {
+        var context = TestDbContextFactory.Create(Guid.NewGuid().ToString());
+        using (var seedContext = context.CreateDbContext())
+        {
+            seedContext.Categories.Add(new Category { Id = 1, UserId = 111, CategoryName = "Groceries" });
+            seedContext.Accounts.Add(new Accounts { Id = 1, UserId = 111, AccountName = "User 111 Account" });
+            await seedContext.SaveChangesAsync();
+        }
+
+        var controller = new TransactionsController(context)
+        {
+            ControllerContext = TestAuthHelper.GetControllerContext(111)
+        };
+
+        var incomingPayLoad = new Transaction
+        {
+            Id = 1,
+            Amount = 100,
+            Date = DateTime.Now,
+            AccountId = 1, // Belongs to user 111
+            CategoryId = 1 // Belongs to user 111
+        };
+
+        var result = await controller.Create(incomingPayLoad);
+
+        Assert.IsType<OkObjectResult>(result);
     }
 }
