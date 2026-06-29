@@ -21,7 +21,7 @@ public class TransactionsController(IDbContextFactory<PennySaverDbContext> dbCon
         var query =  context.Transactions
             .Include(t => t.Account)
             .Include(t => t.Category)
-            .Where(t => t.Account.UserId == userId)
+            .Where(t => t.Account!.UserId == userId)
             .AsQueryable();
 
         if (status.HasValue)
@@ -43,7 +43,7 @@ public class TransactionsController(IDbContextFactory<PennySaverDbContext> dbCon
         var transaction = await context.Transactions
             .Include(t => t.Account)
             .Include(t => t.Category)
-            .FirstOrDefaultAsync(t => t.Id == id && t.Account.UserId == userId);
+            .FirstOrDefaultAsync(t => t.Id == id && t.Account!.UserId == userId);
         if (transaction == null) return NotFound();
         
         return Ok(transaction);
@@ -75,14 +75,20 @@ public class TransactionsController(IDbContextFactory<PennySaverDbContext> dbCon
         int userId = GetCurrentUserId();
         using var context = await _context.CreateDbContextAsync();
 
-        if (userId != transaction.Account.UserId)
+        if (transaction.Account == null && transaction.AccountId != 0)
+        {
+            transaction.Account = await context.Accounts.FirstOrDefaultAsync(a => a.Id == transaction.AccountId);
+            if (transaction.Account == null) return BadRequest("Account not found.");
+        }
+
+        if (userId != transaction.Account!.UserId)
             return BadRequest("Cannot update a transaction that belongs to another user.");
         
         var existing = await context.Transactions
             .Include(t => t.Account)
-            .FirstOrDefaultAsync(t => t.Id == id && t.Account.UserId == userId);
-        if (existing == null) return NotFound();
+            .FirstOrDefaultAsync(t => t.Id == id && t.Account!.UserId == userId);
 
+        if (existing == null) return NotFound();
         if (existing.Status == TransactionStatus.Voided) return BadRequest("Cannot update a voided transaction.");
 
         existing.Amount = transaction.Amount;
@@ -103,7 +109,7 @@ public class TransactionsController(IDbContextFactory<PennySaverDbContext> dbCon
         
         var transaction = await context.Transactions
             .Include(t => t.Account)
-            .FirstOrDefaultAsync(t => t.Id == id && t.Account.UserId == userId && t.Status != TransactionStatus.Voided);
+            .FirstOrDefaultAsync(t => t.Id == id && t.Account!.UserId == userId && t.Status != TransactionStatus.Voided);
         if (transaction == null) return NotFound();
 
         transaction.Status = TransactionStatus.Voided;

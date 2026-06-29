@@ -270,12 +270,46 @@ public class TransactionsControllerTests
             CategoryId = 1,
             Amount = 20,
             Description = "Updated Description",
-            Status = TransactionStatus.Completed
+            Status = TransactionStatus.Completed,
+            Account = new Accounts { Id = 1, UserId = 111, AccountName = "Checking" }
         };
 
         var result = await controller.Update(1, updatePayload);
         var badRequestResult = Assert.IsType<BadRequestObjectResult>(result);
         Assert.Equal("Cannot update a voided transaction.", badRequestResult.Value);
+    }
+
+    [Fact]
+    public async Task Update_Fails_WhenAccountIsNull()
+    {
+        var context = TestDbContextFactory.Create(Guid.NewGuid().ToString());
+        using (var seedContext = context.CreateDbContext())
+        {
+            seedContext.Accounts.Add(new Accounts { Id = 1, UserId = 111, AccountName = "Checking" });
+            seedContext.Categories.Add(new Category { Id = 1, UserId = 111, CategoryName = "Food" });
+            seedContext.Transactions.Add(new Transaction { Id = 1, AccountId = 1, CategoryId = 1, Amount = 10, Description = "Groceries", Status = TransactionStatus.Completed });
+            await seedContext.SaveChangesAsync();
+        }
+
+        var controller = new TransactionsController(context)
+        {
+            ControllerContext = TestAuthHelper.GetControllerContext(111)
+        };
+
+        var updatePayload = new Transaction
+        {
+            Id = 1,
+            AccountId = 999, // Non-existent account
+            CategoryId = 1,
+            Amount = 20,
+            Description = "Updated Description",
+            Status = TransactionStatus.Completed,
+            Account = null // Account is null
+        };
+
+        var result = await controller.Update(1, updatePayload);
+        var badRequestResult = Assert.IsType<BadRequestObjectResult>(result);
+        Assert.Equal("Account not found.", badRequestResult.Value);
     }
 
     [Fact]
@@ -298,7 +332,7 @@ public class TransactionsControllerTests
         };
 
         var result = await controller.Update(999, updatePayload);
-        Assert.IsType<NotFoundResult>(result);
+        Assert.IsType<BadRequestObjectResult>(result);
     }
 
     [Fact]
@@ -331,5 +365,91 @@ public class TransactionsControllerTests
         var result = await controller.Update(1, updatePayload);
         var badRequestResult = Assert.IsType<BadRequestObjectResult>(result);
         Assert.Equal("Cannot update a transaction that belongs to another user.", badRequestResult.Value);
+    }
+
+    [Fact]
+    public async Task Update_Succeeds_ForValidUpdate()
+    {
+        var context = TestDbContextFactory.Create(Guid.NewGuid().ToString());
+        using (var seedContext = context.CreateDbContext())
+        {
+            seedContext.Accounts.Add(new Accounts { Id = 1, UserId = 111, AccountName = "Checking" });
+            seedContext.Categories.Add(new Category { Id = 1, UserId = 111, CategoryName = "Food" });
+            seedContext.Transactions.Add(new Transaction { Id = 1, AccountId = 1, CategoryId = 1, Amount = 10, Description = "Groceries", Status = TransactionStatus.Completed });
+            await seedContext.SaveChangesAsync();
+        }
+
+        var controller = new TransactionsController(context)
+        {
+            ControllerContext = TestAuthHelper.GetControllerContext(111)
+        };
+
+        var updatePayload = new Transaction
+        {
+            Id = 1,
+            AccountId = 1,
+            CategoryId = 1,
+            Amount = 20,
+            Description = "Updated Description",
+            Status = TransactionStatus.Completed
+        };
+
+        var result = await controller.Update(1, updatePayload);
+        Assert.IsType<NoContentResult>(result);
+    }
+
+    [Fact]
+    public async Task Archive_Succeeds_ForValidTransaction()
+    {
+        var context = TestDbContextFactory.Create(Guid.NewGuid().ToString());
+        using (var seedContext = context.CreateDbContext())
+        {
+            seedContext.Accounts.Add(new Accounts { Id = 1, UserId = 111, AccountName = "Checking" });
+            seedContext.Categories.Add(new Category { Id = 1, UserId = 111, CategoryName = "Food" });
+            seedContext.Transactions.Add(new Transaction { Id = 1, AccountId = 1, CategoryId = 1, Amount = 10, Description = "Groceries", Status = TransactionStatus.Completed });
+            await seedContext.SaveChangesAsync();
+        }
+
+        var controller = new TransactionsController(context)
+        {
+            ControllerContext = TestAuthHelper.GetControllerContext(111)
+        };
+
+        var result = await controller.Archive(1);
+        Assert.IsType<NoContentResult>(result);
+    }
+
+    [Fact]
+    public async Task Archive_Fails_ForNonExistentTransaction()
+    {
+        var context = TestDbContextFactory.Create(Guid.NewGuid().ToString());
+        var controller = new TransactionsController(context)
+        {
+            ControllerContext = TestAuthHelper.GetControllerContext(111)
+        };
+
+        var result = await controller.Archive(999);
+        Assert.IsType<NotFoundResult>(result);
+    }
+
+    [Fact]
+    public async Task Archive_Fails_ForTransactionBelongingToAnotherUser()
+    {
+        var context = TestDbContextFactory.Create(Guid.NewGuid().ToString());
+        using (var seedContext = context.CreateDbContext())
+        {
+            seedContext.Accounts.Add(new Accounts { Id = 1, UserId = 111, AccountName = "Checking" });
+            seedContext.Categories.Add(new Category { Id = 1, UserId = 111, CategoryName = "Food" });
+            seedContext.Transactions.Add(new Transaction { Id = 1, AccountId = 1, CategoryId = 1, Amount = 10, Description = "Groceries", Status = TransactionStatus.Completed });
+            await seedContext.SaveChangesAsync();
+        }
+
+        var controller = new TransactionsController(context)
+        {
+            ControllerContext = TestAuthHelper.GetControllerContext(999) // Different user
+        };
+
+        var result = await controller.Archive(1);
+        Assert.IsType<NotFoundResult>(result);
     }
 }
