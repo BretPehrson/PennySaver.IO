@@ -54,6 +54,7 @@ public class TransactionsController(IDbContextFactory<PennySaverDbContext> dbCon
     {
         if (!ModelState.IsValid) return BadRequest(ModelState);
 
+        // Enforce ownership by ensuring the provided AccountId and CategoryId belong to the logged-in user
         int userId = GetCurrentUserId();
 
         using var context = await _context.CreateDbContextAsync();
@@ -73,6 +74,9 @@ public class TransactionsController(IDbContextFactory<PennySaverDbContext> dbCon
     {
         int userId = GetCurrentUserId();
         using var context = await _context.CreateDbContextAsync();
+
+        if (userId != transaction.Account.UserId)
+            return BadRequest("Cannot update a transaction that belongs to another user.");
         
         var existing = await context.Transactions
             .Include(t => t.Account)

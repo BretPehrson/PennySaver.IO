@@ -3,6 +3,31 @@ namespace PennySaver.Tests.Controllers;
 public class AccountsControllerTests
 {
     [Fact]
+    public async Task Create_ForcesOwnershipToLoggedInUser()
+    {
+        var context = TestDbContextFactory.Create(Guid.NewGuid().ToString());
+        var controller = new AccountsController(context)
+        {
+            // Set the controller context to simulate a logged-in user with ID 111
+            ControllerContext = TestAuthHelper.GetControllerContext(111)
+        };
+
+        var incomingPayLoad = new Accounts
+        {
+            Id = 5,
+            AccountName = "New Account",
+            UserId = 999 // Attempt to set to another user
+        };
+
+        var result = await controller.Create(incomingPayLoad);
+
+        var createResult = Assert.IsType<CreatedAtActionResult>(result);
+        var createdAccount = Assert.IsType<Accounts>(createResult.Value);
+
+        Assert.Equal(111, createdAccount.UserId);
+    }
+
+    [Fact]
     public async Task GetAll_ReturnsOnlyLoggedInUserAccounts()
     {
         var context = TestDbContextFactory.Create(Guid.NewGuid().ToString());
@@ -29,31 +54,6 @@ public class AccountsControllerTests
 
         Assert.Equal(2, accounts.Count);
         Assert.All(accounts, a => Assert.Equal(111, a.UserId));
-    }
-
-    [Fact]
-    public async Task Create_ForcesOwnershipToLoggedInUser()
-    {
-        var context = TestDbContextFactory.Create(Guid.NewGuid().ToString());
-        var controller = new AccountsController(context)
-        {
-            // Set the controller context to simulate a logged-in user with ID 111
-            ControllerContext = TestAuthHelper.GetControllerContext(111)
-        };
-
-        var incomingPayLoad = new Accounts
-        {
-            Id = 5,
-            AccountName = "New Account",
-            UserId = 999 // Attempt to set to another user
-        };
-
-        var result = await controller.Create(incomingPayLoad);
-
-        var createResult = Assert.IsType<CreatedAtActionResult>(result);
-        var createdAccount = Assert.IsType<Accounts>(createResult.Value);
-
-        Assert.Equal(111, createdAccount.UserId);
     }
 
     [Fact]

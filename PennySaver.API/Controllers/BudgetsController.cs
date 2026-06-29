@@ -27,6 +27,7 @@ public class BudgetsController(IDbContextFactory<PennySaverDbContext> dbContext)
     [HttpPost]
     public async Task<IActionResult> Create([FromBody] Budgets budget)
     {
+        //Overwrite any provided UserId with the logged-in user's ID to enforce ownership
         budget.UserId = GetCurrentUserId();
         using var context = await _context.CreateDbContextAsync();
 

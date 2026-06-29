@@ -34,6 +34,7 @@ public class CategoriesController(IDbContextFactory<PennySaverDbContext> dbConte
     [HttpPost]
     public async Task<IActionResult> Create([FromBody] Category category)
     {
+        //Overwrite any provided UserId with the logged-in user's ID to enforce ownership
         category.UserId = GetCurrentUserId();
         using var context = await _context.CreateDbContextAsync();
         
@@ -53,6 +54,10 @@ public class CategoriesController(IDbContextFactory<PennySaverDbContext> dbConte
         if (!ModelState.IsValid) return BadRequest(ModelState);
 
         int userId = GetCurrentUserId();
+
+        if (userId != category.UserId)
+            return BadRequest("Cannot update a category that belongs to another user.");
+
         using var context = await _context.CreateDbContextAsync();
         
         var exists = await context.Categories.AnyAsync(c => c.Id == id && c.UserId == userId);

@@ -3,6 +3,32 @@ namespace PennySaver.Tests.Controllers;
 public class CategoriesControllerTests
 {
     [Fact]
+    public async Task Create_ForcesOwnershipToLoggedInUser()
+    {
+        var context = TestDbContextFactory.Create(Guid.NewGuid().ToString());
+        var controller = new CategoriesController(context)
+        {
+            ControllerContext = TestAuthHelper.GetControllerContext(111)
+        };
+
+        var incomingPayLoad = new Category
+        {
+            Id = 1,
+            CategoryName = "Groceries",
+            UserId = 999 // Attempt to set UserId to a different value than the logged-in user
+        };
+
+        var result = await controller.Create(incomingPayLoad);
+        Assert.IsType<CreatedAtActionResult>(result);
+
+        // Verify that the category was created with the UserId of the logged-in user (111) and not the one in the payload (999)
+        using var verifyContext = context.CreateDbContext();
+        var createdCategory = await verifyContext.Categories.FirstOrDefaultAsync(c => c.Id == 1);
+        Assert.NotNull(createdCategory);
+        Assert.Equal(111, createdCategory.UserId); // Should be 111, not 999
+    }
+
+    [Fact]
     public async Task Verify_Fail_WhenAddingSameCategoryTwiceForSameUser()
     {
         var context = TestDbContextFactory.Create(Guid.NewGuid().ToString());
@@ -184,5 +210,70 @@ public class CategoriesControllerTests
         var updatedCategory = getResult.Value as Category;
         Assert.NotNull(updatedCategory);
         Assert.Equal("Updated Groceries", updatedCategory.CategoryName);
+    }
+
+    [Fact]
+    public async Task Verify_CategoryUpdateFails_WhenIdMismatch()
+    {
+        var context = TestDbContextFactory.Create(Guid.NewGuid().ToString());
+        using (var seedContext = context.CreateDbContext())
+        {
+            seedContext.Categories.Add(new Category { Id = 1, UserId = 111, CategoryName = "Groceries" });
+            await seedContext.SaveChangesAsync();
+        }
+
+        var controller = new CategoriesController(context)
+        {
+            ControllerContext = TestAuthHelper.GetControllerContext(111)
+        };
+
+        var updateResult = await controller.Update(1, new Category { Id = 2, UserId = 111, CategoryName = "Updated Groceries" });
+        var badRequestResult = Assert.IsType<BadRequestObjectResult>(updateResult);
+        
+        Assert.Equal("ID mismatch.", badRequestResult.Value);
+    }
+
+    [Fact]
+    public async Task Verify_CategoryUpdateFails_WhenModelStateIsInvalid()
+    {
+        var context = TestDbContextFactory.Create(Guid.NewGuid().ToString());
+        using (var seedContext = context.CreateDbContext())
+        {
+            seedContext.Categories.Add(new Category { Id = 1, UserId = 111, CategoryName = "Groceries" });
+            await seedContext.SaveChangesAsync();
+        }
+
+        var controller = new CategoriesController(context)
+        {
+            ControllerContext = TestAuthHelper.GetControllerContext(111)
+        };
+
+        controller.ModelState.AddModelError("CategoryName", "Required");
+
+        var updateResult = await controller.Update(1, new Category { Id = 1, UserId = 111, CategoryName = "" });
+        var badRequestResult = Assert.IsType<BadRequestObjectResult>(updateResult);
+        
+        Assert.IsType<SerializableError>(badRequestResult.Value);
+    }
+
+    [Fact]
+    public async Task Update_Fails_WhenCategoryBelongsToAnotherUser()
+    {
+        var context = TestDbContextFactory.Create(Guid.NewGuid().ToString());
+        using (var seedContext = context.CreateDbContext())
+        {
+            seedContext.Categories.Add(new Category { Id = 1, UserId = 111, CategoryName = "Groceries" });
+            await seedContext.SaveChangesAsync();
+        }
+
+        var controller = new CategoriesController(context)
+        {
+            ControllerContext = TestAuthHelper.GetControllerContext(111)
+        };
+
+        var updateResult = await controller.Update(1, new Category { Id = 1, UserId = 999, CategoryName = "Updated Groceries" });
+         var badRequestResult = Assert.IsType<BadRequestObjectResult>(updateResult);
+        
+        Assert.Equal("Cannot update a category that belongs to another user.", badRequestResult.Value);
     }
 }

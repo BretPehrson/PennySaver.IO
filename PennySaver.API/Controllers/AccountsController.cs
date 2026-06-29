@@ -34,6 +34,7 @@ namespace PennySaver.API.Controllers
         [HttpPost]
         public async Task<IActionResult> Create([FromBody] Accounts account)
         {
+            //Overwrite any provided UserId with the logged-in user's ID to enforce ownership
             account.UserId = GetCurrentUserId();
             using var context = await _context.CreateDbContextAsync();
             context.Accounts.Add(account);
