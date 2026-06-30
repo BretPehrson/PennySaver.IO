@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using PennySaver.API.Data;
 
@@ -11,9 +12,11 @@ using PennySaver.API.Data;
 namespace PennySaver.API.Migrations
 {
     [DbContext(typeof(PennySaverDbContext))]
-    partial class PennySaverDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260629225123_UpdatingDB")]
+    partial class UpdatingDB
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -192,51 +195,13 @@ namespace PennySaver.API.Migrations
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<string>("Username")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
                     b.HasKey("UserId");
 
                     b.ToTable("Users");
-                });
-
-            modelBuilder.Entity("PennySaver.API.Models.UserInfo", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<string>("Address")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("City")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("FirstName")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("LastName")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("PhoneNumber")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("State")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<int>("UserId")
-                        .HasColumnType("int");
-
-                    b.Property<string>("ZipCode")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("UserId")
-                        .IsUnique();
-
-                    b.ToTable("UserInfo");
                 });
 
             modelBuilder.Entity("PennySaver.API.Models.Accounts", b =>
@@ -310,21 +275,8 @@ namespace PennySaver.API.Migrations
                     b.Navigation("Category");
                 });
 
-            modelBuilder.Entity("PennySaver.API.Models.UserInfo", b =>
-                {
-                    b.HasOne("PennySaver.API.Models.User", "User")
-                        .WithOne("Profile")
-                        .HasForeignKey("PennySaver.API.Models.UserInfo", "UserId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("User");
-                });
-
             modelBuilder.Entity("PennySaver.API.Models.User", b =>
                 {
-                    b.Navigation("Profile");
-
                     b.Navigation("RefreshTokens");
                 });
 #pragma warning restore 612, 618

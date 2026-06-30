@@ -3,12 +3,12 @@ namespace PennySaver.API.Data;
 public class PennySaverDbContext(DbContextOptions<PennySaverDbContext> options) 
     : DbContext(options)
 {
-    public DbSet<User> Users { get; set; }
-    public DbSet<RefreshToken> RefreshTokens { get; set; }
-    public DbSet<Accounts> Accounts { get; set; }
-    public DbSet<Budgets> Budgets { get; set; }
-    public DbSet<Category> Categories { get; set; }
-    public DbSet<Transaction> Transactions { get; set; }
+    public DbSet<User> User { get; set; }
+    public DbSet<RefreshToken> RefreshToken { get; set; }
+    public DbSet<Account> Account { get; set; }
+    public DbSet<Budget> Budget { get; set; }
+    public DbSet<Category> Category { get; set; }
+    public DbSet<Transaction> Transaction { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -21,12 +21,12 @@ public class PennySaverDbContext(DbContextOptions<PennySaverDbContext> options)
             .OnDelete(DeleteBehavior.Restrict); 
 
         modelBuilder.Entity<Transaction>()
-            .HasOne(a => a.Account)
+            .HasOne(t => t.Account)
             .WithMany()
-            .HasForeignKey(a => a.AccountId)
+            .HasForeignKey(t => t.AccountId)
             .OnDelete(DeleteBehavior.Restrict);
 
-        modelBuilder.Entity<Budgets>()
+        modelBuilder.Entity<Budget>()
             .HasOne(b => b.Category)
             .WithMany()
             .HasForeignKey(b => b.CategoryId)

@@ -1,18 +1,30 @@
 namespace PennySaver.Tests.Controllers;
 
-public class AccountsControllerTests
+public class AccountControllerTests
 {
+    private readonly IDbContextFactory<PennySaverDbContext> _context;
+
+    public AccountControllerTests()
+    {
+        _context = TestDbContextFactory.Create(Guid.NewGuid().ToString());
+    }
+
+    private static AccountController CreateAccountController(IDbContextFactory<PennySaverDbContext> sharedContext, int? userId = null) => new(sharedContext)
+    {
+        ControllerContext = TestAuthHelper.GetControllerContext(userId)
+    };
+
+    private static TransactionController CreateTransactionController(IDbContextFactory<PennySaverDbContext> sharedContext, int? userId = null) => new(sharedContext)
+    {
+        ControllerContext = TestAuthHelper.GetControllerContext(userId)
+    };
+
     [Fact]
     public async Task Create_ForcesOwnershipToLoggedInUser()
     {
-        var context = TestDbContextFactory.Create(Guid.NewGuid().ToString());
-        var controller = new AccountsController(context)
-        {
-            // Set the controller context to simulate a logged-in user with ID 111
-            ControllerContext = TestAuthHelper.GetControllerContext(111)
-        };
+        var controller = CreateAccountController(_context, 111);
 
-        var incomingPayLoad = new Accounts
+        var incomingPayLoad = new Account
         {
             Id = 5,
             AccountName = "New Account",
@@ -22,7 +34,7 @@ public class AccountsControllerTests
         var result = await controller.Create(incomingPayLoad);
 
         var createResult = Assert.IsType<CreatedAtActionResult>(result);
-        var createdAccount = Assert.IsType<Accounts>(createResult.Value);
+        var createdAccount = Assert.IsType<Account>(createResult.Value);
 
         Assert.Equal(111, createdAccount.UserId);
     }
@@ -33,24 +45,21 @@ public class AccountsControllerTests
         var context = TestDbContextFactory.Create(Guid.NewGuid().ToString());
         using (var seedContext = context.CreateDbContext())
         {
-            seedContext.Accounts.AddRange(
-                new Accounts { Id = 1, UserId = 111, AccountName = "User 1 Account" },
-                new Accounts { Id = 2, UserId = 111, AccountName = "User 2 Account" },
-                new Accounts { Id = 3, UserId = 999, AccountName = "Malicious Checking" }
+            seedContext.Account.AddRange(
+                new Account { Id = 1, UserId = 111, AccountName = "User 1 Account" },
+                new Account { Id = 2, UserId = 111, AccountName = "User 2 Account" },
+                new Account { Id = 3, UserId = 999, AccountName = "Malicious Checking" }
             );
 
             await seedContext.SaveChangesAsync();
         }
 
-        var controller = new AccountsController(context)
-        {
-            ControllerContext = TestAuthHelper.GetControllerContext(111)
-        };
+        var controller = CreateAccountController(context, 111);
 
         var result = await controller.GetAll();
 
         var okResult = Assert.IsType<OkObjectResult>(result);
-        var accounts = Assert.IsType<List<Accounts>>(okResult.Value);
+        var accounts = Assert.IsType<List<Account>>(okResult.Value);
 
         Assert.Equal(2, accounts.Count);
         Assert.All(accounts, a => Assert.Equal(111, a.UserId));
@@ -62,15 +71,12 @@ public class AccountsControllerTests
         var context = TestDbContextFactory.Create(Guid.NewGuid().ToString());
         using (var seedContext = context.CreateDbContext())
         {
-            seedContext.Categories.Add(new Category { Id = 10, UserId = 111, CategoryName = "Groceries" });
-            seedContext.Accounts.Add(new Accounts { Id = 20, UserId = 999, AccountName = "Malicious Checking" });
+            seedContext.Category.Add(new Category { Id = 10, UserId = 111, CategoryName = "Groceries" });
+            seedContext.Account.Add(new Account { Id = 20, UserId = 999, AccountName = "Malicious Checking" });
             await seedContext.SaveChangesAsync();
         }
 
-        var controller = new TransactionsController(context)
-        {
-            ControllerContext = TestAuthHelper.GetControllerContext(111)
-        };
+        var controller = CreateTransactionController(context, 111);
 
         var incomingPayLoad = new Transaction
         {
@@ -92,15 +98,12 @@ public class AccountsControllerTests
         var context = TestDbContextFactory.Create(Guid.NewGuid().ToString());
         using (var seedContext = context.CreateDbContext())
         {
-            seedContext.Categories.Add(new Category { Id = 10, UserId = 999, CategoryName = "Malicious Category" });
-            seedContext.Accounts.Add(new Accounts { Id = 20, UserId = 111, AccountName = "User 111 Account" });
+            seedContext.Category.Add(new Category { Id = 10, UserId = 999, CategoryName = "Malicious Category" });
+            seedContext.Account.Add(new Account { Id = 20, UserId = 111, AccountName = "User 111 Account" });
             await seedContext.SaveChangesAsync();
         }
 
-        var controller = new TransactionsController(context)
-        {
-            ControllerContext = TestAuthHelper.GetControllerContext(111)
-        };
+        var controller = CreateTransactionController(context, 111);
 
         var incomingPayLoad = new Transaction
         {
@@ -121,15 +124,12 @@ public class AccountsControllerTests
         var context = TestDbContextFactory.Create(Guid.NewGuid().ToString());
         using (var seedContext = context.CreateDbContext())
         {
-            seedContext.Categories.Add(new Category { Id = 1, UserId = 111, CategoryName = "Groceries" });
-            seedContext.Accounts.Add(new Accounts { Id = 1, UserId = 111, AccountName = "User 111 Account" });
+            seedContext.Category.Add(new Category { Id = 1, UserId = 111, CategoryName = "Groceries" });
+            seedContext.Account.Add(new Account { Id = 1, UserId = 111, AccountName = "User 111 Account" });
             await seedContext.SaveChangesAsync();
         }
 
-        var controller = new TransactionsController(context)
-        {
-            ControllerContext = TestAuthHelper.GetControllerContext(111)
-        };
+        var controller = CreateTransactionController(context, 111);
 
         var incomingPayLoad = new Transaction
         {
@@ -151,14 +151,11 @@ public class AccountsControllerTests
         var context = TestDbContextFactory.Create(Guid.NewGuid().ToString());
         using (var seedContext = context.CreateDbContext())
         {
-            seedContext.Categories.Add(new Category { Id = 1, UserId = 111, CategoryName = "Groceries" });
+            seedContext.Category.Add(new Category { Id = 1, UserId = 111, CategoryName = "Groceries" });
             await seedContext.SaveChangesAsync();
         }
 
-        var controller = new TransactionsController(context)
-        {
-            ControllerContext = TestAuthHelper.GetControllerContext(111)
-        };
+        var controller = CreateTransactionController(context, 111);
 
         var incomingPayLoad = new Transaction
         {
@@ -180,14 +177,11 @@ public class AccountsControllerTests
         var context = TestDbContextFactory.Create(Guid.NewGuid().ToString());
         using (var seedContext = context.CreateDbContext())
         {
-            seedContext.Accounts.Add(new Accounts { Id = 1, UserId = 111, AccountName = "User 111 Account" });
+            seedContext.Account.Add(new Account { Id = 1, UserId = 111, AccountName = "User 111 Account" });
             await seedContext.SaveChangesAsync();
         }
 
-        var controller = new TransactionsController(context)
-        {
-            ControllerContext = TestAuthHelper.GetControllerContext(111)
-        };
+        var controller = CreateTransactionController(context, 111);
 
         var incomingPayLoad = new Transaction
         {
@@ -208,10 +202,7 @@ public class AccountsControllerTests
     {
         var context = TestDbContextFactory.Create(Guid.NewGuid().ToString());
 
-        var controller = new TransactionsController(context)
-        {
-            ControllerContext = TestAuthHelper.GetControllerContext(111)
-        };
+        var controller = CreateTransactionController(context, 111);
 
         var incomingPayLoad = new Transaction
         {
@@ -233,15 +224,12 @@ public class AccountsControllerTests
         var context = TestDbContextFactory.Create(Guid.NewGuid().ToString());
         using (var seedContext = context.CreateDbContext())
         {
-            seedContext.Categories.Add(new Category { Id = 10, UserId = 999, CategoryName = "Malicious Category" });
-            seedContext.Accounts.Add(new Accounts { Id = 20, UserId = 999, AccountName = "Malicious Checking" });
+            seedContext.Category.Add(new Category { Id = 10, UserId = 999, CategoryName = "Malicious Category" });
+            seedContext.Account.Add(new Account { Id = 20, UserId = 999, AccountName = "Malicious Checking" });
             await seedContext.SaveChangesAsync();
         }
 
-        var controller = new TransactionsController(context)
-        {
-            ControllerContext = TestAuthHelper.GetControllerContext(111)
-        };
+        var controller = CreateTransactionController(context, 111);
 
         var incomingPayLoad = new Transaction
         {
@@ -263,16 +251,12 @@ public class AccountsControllerTests
         var context = TestDbContextFactory.Create(Guid.NewGuid().ToString());
         using (var seedContext = context.CreateDbContext())
         {
-            seedContext.Categories.Add(new Category { Id = 1, UserId = 111, CategoryName = "Groceries" });
-            seedContext.Accounts.Add(new Accounts { Id = 1, UserId = 111, AccountName = "User 111 Account" });
+            seedContext.Category.Add(new Category { Id = 1, UserId = 111, CategoryName = "Groceries" });
+            seedContext.Account.Add(new Account { Id = 1, UserId = 111, AccountName = "User 111 Account" });
             await seedContext.SaveChangesAsync();
         }
 
-        var controller = new TransactionsController(context)
-        {
-            ControllerContext = TestAuthHelper.GetControllerContext(111)
-        };
-
+        var controller = CreateTransactionController(context, 111);
 
         var incomingPayLoad = new Transaction
         {

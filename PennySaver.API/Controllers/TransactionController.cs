@@ -3,12 +3,12 @@ namespace PennySaver.API.Controllers;
 [Authorize]
 [ApiController]
 [Route("api/[controller]")]
-public class TransactionsController(IDbContextFactory<PennySaverDbContext> dbContext) : ControllerBase
+public class TransactionController(IDbContextFactory<PennySaverDbContext> dbContext) : ControllerBase
 {
     private readonly IDbContextFactory<PennySaverDbContext> _context = dbContext;
 
     private int GetCurrentUserId() =>
-        int.TryParse(User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value, out var userId) 
+        int.TryParse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value, out var userId) 
         ? userId 
         : throw new UnauthorizedAccessException();
 
@@ -18,7 +18,7 @@ public class TransactionsController(IDbContextFactory<PennySaverDbContext> dbCon
         int userId = GetCurrentUserId();
         using var context = await _context.CreateDbContextAsync();
         
-        var query =  context.Transactions
+        var query =  context.Transaction
             .Include(t => t.Account)
             .Include(t => t.Category)
             .Where(t => t.Account!.UserId == userId)
@@ -40,7 +40,7 @@ public class TransactionsController(IDbContextFactory<PennySaverDbContext> dbCon
         int userId = GetCurrentUserId();
         using var context = await _context.CreateDbContextAsync();
         
-        var transaction = await context.Transactions
+        var transaction = await context.Transaction
             .Include(t => t.Account)
             .Include(t => t.Category)
             .FirstOrDefaultAsync(t => t.Id == id && t.Account!.UserId == userId);
@@ -59,11 +59,11 @@ public class TransactionsController(IDbContextFactory<PennySaverDbContext> dbCon
 
         using var context = await _context.CreateDbContextAsync();
 
-        var accountOwned = await context.Accounts.AnyAsync(a => a.Id == transaction.AccountId && a.UserId == userId);
-        var categoryOwned = await context.Categories.AnyAsync(c => c.Id == transaction.CategoryId && c.UserId == userId);
+        var accountOwned = await context.Account.AnyAsync(a => a.Id == transaction.AccountId && a.UserId == userId);
+        var categoryOwned = await context.Category.AnyAsync(c => c.Id == transaction.CategoryId && c.UserId == userId);
         if (!accountOwned || !categoryOwned) return BadRequest("Invalid account or category assignment.");
 
-        context.Transactions.Add(transaction);
+        context.Transaction.Add(transaction);
         await context.SaveChangesAsync();
         
         return Ok(transaction);
@@ -77,14 +77,14 @@ public class TransactionsController(IDbContextFactory<PennySaverDbContext> dbCon
 
         if (transaction.Account == null && transaction.AccountId != 0)
         {
-            transaction.Account = await context.Accounts.FirstOrDefaultAsync(a => a.Id == transaction.AccountId);
+            transaction.Account = await context.Account.FirstOrDefaultAsync(a => a.Id == transaction.AccountId);
             if (transaction.Account == null) return BadRequest("Account not found.");
         }
 
         if (userId != transaction.Account!.UserId)
             return BadRequest("Cannot update a transaction that belongs to another user.");
         
-        var existing = await context.Transactions
+        var existing = await context.Transaction
             .Include(t => t.Account)
             .FirstOrDefaultAsync(t => t.Id == id && t.Account!.UserId == userId);
 
@@ -107,7 +107,7 @@ public class TransactionsController(IDbContextFactory<PennySaverDbContext> dbCon
         int userId = GetCurrentUserId();
         using var context = await _context.CreateDbContextAsync();
         
-        var transaction = await context.Transactions
+        var transaction = await context.Transaction
             .Include(t => t.Account)
             .FirstOrDefaultAsync(t => t.Id == id && t.Account!.UserId == userId && t.Status != TransactionStatus.Voided);
         if (transaction == null) return NotFound();

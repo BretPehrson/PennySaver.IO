@@ -1,6 +1,6 @@
 namespace PennySaver.API.Models;
 
-public class Accounts
+public class Account
 {
     public enum AccountType
     {

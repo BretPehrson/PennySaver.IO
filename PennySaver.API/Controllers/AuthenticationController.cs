@@ -2,30 +2,54 @@ namespace PennySaver.API.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
-public class AuthController(IDbContextFactory<PennySaverDbContext> dbContextFactory, IOptions<JwtOptions> jwtOptions) : ControllerBase
+public class AuthController(IDbContextFactory<PennySaverDbContext> dbContextFactory, IOptions<JwtOption> jwtOptions) : ControllerBase
 {
     private readonly IDbContextFactory<PennySaverDbContext> _dbContextFactory = dbContextFactory;
-    private readonly JwtOptions _jwtOptions = jwtOptions.Value;
+    private readonly JwtOption _jwtOptions = jwtOptions.Value;
+
+    [AllowAnonymous]
+    [HttpPost("register")]
+    public async Task<IActionResult> Register([FromBody] User model)
+    {
+        if ( model.Email == null || model.PasswordHash == null)
+            return BadRequest(new { message = "Email and password are required." });
+
+        using var context = _dbContextFactory.CreateDbContext();
+
+        if (context.User.Any(u => u.Email == model.Email))
+            return BadRequest(new { message = "Email is already registered." });
+
+        var passwordHash = BCrypt.Net.BCrypt.HashPassword(model.PasswordHash);
+        var user = new User
+        {
+            Email = model.Email,
+            PasswordHash = passwordHash,
+            CreatedAt = DateTime.UtcNow
+        };
+
+        context.User.Add(user);
+        await context.SaveChangesAsync();
+
+        return Ok(new { message = "Registration successful." });
+    }
 
     [AllowAnonymous]
     [HttpPost("token")]
-    public IActionResult IssueToken([FromBody] LoginRequest request)
+    public async Task<IActionResult> IssueToken([FromBody] LoginRequest request)
     {
-        User? user = null;
+        if (request == null || string.IsNullOrEmpty(request.Email) || string.IsNullOrEmpty(request.Password))
+            return BadRequest(new { message = "Email and password are required." });
 
-        using (var dbContext = _dbContextFactory.CreateDbContext())
-        {
-            user = dbContext.Users
-                .FirstOrDefault(u => u.Email == request.Email);
-        }
+        using var context = _dbContextFactory.CreateDbContext();
+        
+        var user = await context.User
+                .FirstOrDefaultAsync(u => u.Email == request.Email);
 
         if (user == null)
             return Unauthorized(new { message = "Invalid username or password." });
 
-        var passwordHasher = new PasswordHasher<User>();
-        var verificationResult = passwordHasher.VerifyHashedPassword(user, user.PasswordHash, request.Password);
-        if (verificationResult == PasswordVerificationResult.Failed)
-            return Unauthorized(new { message = "Invalid username or password." });
+        bool isPasswordValid = BCrypt.Net.BCrypt.Verify(request.Password, user.PasswordHash);
+        if (!isPasswordValid) return Unauthorized(new { message = "Invalid username or password." });
 
         var claims = new[]
         {
@@ -56,13 +80,11 @@ public class AuthController(IDbContextFactory<PennySaverDbContext> dbContextFact
             UserId = user.UserId
         };
 
-        using (var dbContext = _dbContextFactory.CreateDbContext())
-        {
-            dbContext.RefreshTokens.Add(newRefreshToken);
-            dbContext.SaveChanges();
-        }
+        context.RefreshToken.Add(newRefreshToken);
+        await context.SaveChangesAsync();
 
         SetRefreshTokenCookie(newRefreshToken.Token);
+
         return Ok(new 
         {
              token = tokenString,
@@ -74,21 +96,19 @@ public class AuthController(IDbContextFactory<PennySaverDbContext> dbContextFact
 
     [AllowAnonymous]
     [HttpPost("refresh")]
-    public IActionResult Refresh()
+    public async Task<IActionResult> Refresh()
     {
         if (!Request.Cookies.TryGetValue("refreshToken", out var refreshToken) || string.IsNullOrEmpty(refreshToken))
             return Unauthorized(new { message = "Refresh token is missing." });
 
-        using var dbContext = _dbContextFactory.CreateDbContext();
+        using var context = _dbContextFactory.CreateDbContext();
         
-        RefreshToken? storedToken = dbContext.RefreshTokens
+        RefreshToken? storedToken = context.RefreshToken
             .Include(t => t.User)
             .FirstOrDefault(rt => rt.Token == refreshToken);
 
         if (storedToken == null || !storedToken.IsActive)
             return Unauthorized(new { message = "Invalid or expired refresh token." });
-
-        storedToken.IsRevoked = true;
 
         var claims = new[]
         {
@@ -117,11 +137,12 @@ public class AuthController(IDbContextFactory<PennySaverDbContext> dbContextFact
             Expires = DateTime.UtcNow.AddDays(7),
             UserId = storedToken.User.UserId
         };
-        dbContext.RefreshTokens.Remove(storedToken);
-        dbContext.RefreshTokens.Add(newRefreshToken);
-        dbContext.SaveChanges();
+        context.RefreshToken.Remove(storedToken);
+        context.RefreshToken.Add(newRefreshToken);
+        await context.SaveChangesAsync();
 
         SetRefreshTokenCookie(newRefreshToken.Token);
+        
         return Ok(new 
         {
             token = newTokenString,

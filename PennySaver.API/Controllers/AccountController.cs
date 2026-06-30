@@ -3,7 +3,7 @@ namespace PennySaver.API.Controllers
     [Authorize]
     [ApiController]
     [Route("api/[controller]")]
-    public class AccountsController(IDbContextFactory<PennySaverDbContext> dbContext) : ControllerBase
+    public class AccountController(IDbContextFactory<PennySaverDbContext> dbContext) : ControllerBase
     {
         private readonly IDbContextFactory<PennySaverDbContext> _context = dbContext;
 
@@ -17,7 +17,7 @@ namespace PennySaver.API.Controllers
         {
             var userId = GetCurrentUserId();
             using var context = await _context.CreateDbContextAsync();
-            var userAccounts = context.Accounts.Where(a => a.UserId == userId).ToList();
+            var userAccounts = context.Account.Where(a => a.UserId == userId).ToList();
             return Ok(userAccounts);
         }
 
@@ -26,25 +26,25 @@ namespace PennySaver.API.Controllers
         {
             int userId = GetCurrentUserId();
             using var context = await _context.CreateDbContextAsync();
-            var account = context.Accounts.FirstOrDefault(a => a.Id == id && a.UserId == userId);
+            var account = context.Account.FirstOrDefault(a => a.Id == id && a.UserId == userId);
             if (account == null) return NotFound();
             return Ok(account);
         }
 
         [HttpPost]
-        public async Task<IActionResult> Create([FromBody] Accounts account)
+        public async Task<IActionResult> Create([FromBody] Account account)
         {
             //Overwrite any provided UserId with the logged-in user's ID to enforce ownership
             account.UserId = GetCurrentUserId();
             using var context = await _context.CreateDbContextAsync();
-            context.Accounts.Add(account);
+            context.Account.Add(account);
             await context.SaveChangesAsync();
             
             return CreatedAtAction(nameof(GetById), new { id = account.Id }, account);
         }
 
         [HttpPut("{id}")]
-        public async Task<IActionResult> Update(int id, [FromBody] Accounts account)
+        public async Task<IActionResult> Update(int id, [FromBody] Account account)
         {
             if (id != account.Id) return BadRequest("ID mismatch.");
             if (!ModelState.IsValid) return BadRequest(ModelState);
@@ -52,7 +52,7 @@ namespace PennySaver.API.Controllers
             int userId = GetCurrentUserId();
             using var context = await _context.CreateDbContextAsync();
             
-            var exists = await context.Accounts.AnyAsync(a => a.Id == id && a.UserId == userId);
+            var exists = await context.Account.AnyAsync(a => a.Id == id && a.UserId == userId);
             if (!exists) return NotFound();
 
             account.UserId = userId;
@@ -66,12 +66,12 @@ namespace PennySaver.API.Controllers
         public async Task<IActionResult> Delete(int id)
         {
             int userId = GetCurrentUserId();
-            using var dbContext = await _context.CreateDbContextAsync();
-            var account = await dbContext.Accounts.FirstOrDefaultAsync(a => a.Id == id && a.UserId == userId);
+            using var context = await _context.CreateDbContextAsync();
+            var account = await context.Account.FirstOrDefaultAsync(a => a.Id == id && a.UserId == userId);
             if (account == null) return NotFound();
 
-            dbContext.Accounts.Remove(account);
-            await dbContext.SaveChangesAsync();
+            context.Account.Remove(account);
+            await context.SaveChangesAsync();
 
             return NoContent();
         }

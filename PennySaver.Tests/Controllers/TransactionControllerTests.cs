@@ -1,7 +1,19 @@
 namespace PennySaver.Tests.Controllers;
 
-public class TransactionsControllerTests
+public class TransactionControllerTests
 {
+    private readonly IDbContextFactory<PennySaverDbContext> _context;
+
+    public TransactionControllerTests()
+    {
+        _context = TestDbContextFactory.Create(Guid.NewGuid().ToString());
+    }
+
+    private static TransactionController CreateController(IDbContextFactory<PennySaverDbContext> sharedContext, int? userId = null) => new(sharedContext)
+    {
+        ControllerContext = TestAuthHelper.GetControllerContext(userId)
+    };
+
     [Fact]
     public async Task Create_ForcesOwnershipToLoggedInUser()
     {
@@ -10,15 +22,12 @@ public class TransactionsControllerTests
         // Seed a category and account that belongs to our logged-in user (111)
         using (var seedContext = context.CreateDbContext())
         {
-            seedContext.Categories.Add(new Category { Id = 1, UserId = 111, CategoryName = "Food" });
-            seedContext.Accounts.Add(new Accounts { Id = 1, UserId = 111, AccountName = "Checking" });
+            seedContext.Category.Add(new Category { Id = 1, UserId = 111, CategoryName = "Food" });
+            seedContext.Account.Add(new Account { Id = 1, UserId = 111, AccountName = "Checking" });
             await seedContext.SaveChangesAsync();
         }
 
-        var controller = new TransactionsController(context)
-        {
-            ControllerContext = TestAuthHelper.GetControllerContext(111)
-        };
+        var controller = CreateController(context, 111);
 
         var incomingPayLoad = new Transaction
         {
@@ -45,19 +54,16 @@ public class TransactionsControllerTests
         var context = TestDbContextFactory.Create(Guid.NewGuid().ToString());
         using (var seedContext = context.CreateDbContext())
         {
-            seedContext.Accounts.Add(new Accounts { Id = 1, UserId = 111, AccountName = "Checking" });
-            seedContext.Categories.Add(new Category { Id = 1, UserId = 111, CategoryName = "Food" });
-            seedContext.Transactions.AddRange(
+            seedContext.Account.Add(new Account { Id = 1, UserId = 111, AccountName = "Checking" });
+            seedContext.Category.Add(new Category { Id = 1, UserId = 111, CategoryName = "Food" });
+            seedContext.Transaction.AddRange(
                 new Transaction { Id = 1, AccountId = 1, CategoryId = 1, Amount = 10, Description = "Groceries", Status = TransactionStatus.Completed },
                 new Transaction { Id = 2, AccountId = 1, CategoryId = 1, Amount = 20, Description = "Dining Out", Status = TransactionStatus.Completed }
             );
             await seedContext.SaveChangesAsync();
         }
 
-        var controller = new TransactionsController(context)
-        {
-            ControllerContext = TestAuthHelper.GetControllerContext(111)
-        };
+        var controller = CreateController(context, 111);
 
         var result = await controller.GetAll(null);
         var okResult = Assert.IsType<OkObjectResult>(result);
@@ -71,9 +77,9 @@ public class TransactionsControllerTests
         var context = TestDbContextFactory.Create(Guid.NewGuid().ToString());
         using (var seedContext = context.CreateDbContext())
         {
-            seedContext.Accounts.Add(new Accounts { Id = 1, UserId = 111, AccountName = "Checking" });
-            seedContext.Categories.Add(new Category { Id = 1, UserId = 111, CategoryName = "Food" });
-            seedContext.Transactions.AddRange(
+            seedContext.Account.Add(new Account { Id = 1, UserId = 111, AccountName = "Checking" });
+            seedContext.Category.Add(new Category { Id = 1, UserId = 111, CategoryName = "Food" });
+            seedContext.Transaction.AddRange(
                 new Transaction { Id = 1, AccountId = 1, CategoryId = 1, Amount = 10, Description = "Groceries", Status = TransactionStatus.Completed },
                 new Transaction { Id = 2, AccountId = 1, CategoryId = 1, Amount = 20, Description = "Dining Out", Status = TransactionStatus.Pending },
                 new Transaction { Id = 3, AccountId = 1, CategoryId = 1, Amount = 20, Description = "Dining Out", Status = TransactionStatus.Voided }
@@ -81,10 +87,7 @@ public class TransactionsControllerTests
             await seedContext.SaveChangesAsync();
         }
 
-        var controller = new TransactionsController(context)
-        {
-            ControllerContext = TestAuthHelper.GetControllerContext(111)
-        };
+        var controller = CreateController(context, 111);
 
         var result = await controller.GetAll(TransactionStatus.Completed);
         var okResult = Assert.IsType<OkObjectResult>(result);
@@ -100,9 +103,9 @@ public class TransactionsControllerTests
         var context = TestDbContextFactory.Create(Guid.NewGuid().ToString());
         using (var seedContext = context.CreateDbContext())
         {
-            seedContext.Accounts.Add(new Accounts { Id = 1, UserId = 111, AccountName = "Checking" });
-            seedContext.Categories.Add(new Category { Id = 1, UserId = 111, CategoryName = "Food" });
-            seedContext.Transactions.AddRange(
+            seedContext.Account.Add(new Account { Id = 1, UserId = 111, AccountName = "Checking" });
+            seedContext.Category.Add(new Category { Id = 1, UserId = 111, CategoryName = "Food" });
+            seedContext.Transaction.AddRange(
                 new Transaction { Id = 1, AccountId = 1, CategoryId = 1, Amount = 10, Description = "Groceries", Status = TransactionStatus.Completed },
                 new Transaction { Id = 2, AccountId = 1, CategoryId = 1, Amount = 20, Description = "Dining Out", Status = TransactionStatus.Pending },
                 new Transaction { Id = 3, AccountId = 1, CategoryId = 1, Amount = 20, Description = "Dining Out", Status = TransactionStatus.Voided }
@@ -110,10 +113,7 @@ public class TransactionsControllerTests
             await seedContext.SaveChangesAsync();
         }
 
-        var controller = new TransactionsController(context)
-        {
-            ControllerContext = TestAuthHelper.GetControllerContext(111)
-        };
+        var controller = CreateController(context, 111);
 
         var result = await controller.GetAll(TransactionStatus.Pending);
         var okResult = Assert.IsType<OkObjectResult>(result);
@@ -123,17 +123,15 @@ public class TransactionsControllerTests
         Assert.Equal(2, transactions[0].Id);
     }
 
-
-
     [Fact]
     public async Task GetAll_FiltersByStatusNotVoided()
     {
         var context = TestDbContextFactory.Create(Guid.NewGuid().ToString());
         using (var seedContext = context.CreateDbContext())
         {
-            seedContext.Accounts.Add(new Accounts { Id = 1, UserId = 111, AccountName = "Checking" });
-            seedContext.Categories.Add(new Category { Id = 1, UserId = 111, CategoryName = "Food" });
-            seedContext.Transactions.AddRange(
+            seedContext.Account.Add(new Account { Id = 1, UserId = 111, AccountName = "Checking" });
+            seedContext.Category.Add(new Category { Id = 1, UserId = 111, CategoryName = "Food" });
+            seedContext.Transaction.AddRange(
                 new Transaction { Id = 1, AccountId = 1, CategoryId = 1, Amount = 10, Description = "Groceries", Status = TransactionStatus.Completed },
                 new Transaction { Id = 2, AccountId = 1, CategoryId = 1, Amount = 20, Description = "Dining Out", Status = TransactionStatus.Pending },
                 new Transaction { Id = 3, AccountId = 1, CategoryId = 1, Amount = 20, Description = "Dining Out", Status = TransactionStatus.Voided }
@@ -141,10 +139,7 @@ public class TransactionsControllerTests
             await seedContext.SaveChangesAsync();
         }
 
-        var controller = new TransactionsController(context)
-        {
-            ControllerContext = TestAuthHelper.GetControllerContext(111)
-        };
+        var controller = CreateController(context, 111);
 
         var result = await controller.GetAll(null);
         var okResult = Assert.IsType<OkObjectResult>(result);
@@ -159,16 +154,13 @@ public class TransactionsControllerTests
         var context = TestDbContextFactory.Create(Guid.NewGuid().ToString());
         using (var seedContext = context.CreateDbContext())
         {
-            seedContext.Accounts.Add(new Accounts { Id = 1, UserId = 111, AccountName = "Checking" });
-            seedContext.Categories.Add(new Category { Id = 1, UserId = 111, CategoryName = "Food" });
-            seedContext.Transactions.Add(new Transaction { Id = 1, AccountId = 1, CategoryId = 1, Amount = 10, Description = "Groceries", Status = TransactionStatus.Completed });
+            seedContext.Account.Add(new Account { Id = 1, UserId = 111, AccountName = "Checking" });
+            seedContext.Category.Add(new Category { Id = 1, UserId = 111, CategoryName = "Food" });
+            seedContext.Transaction.Add(new Transaction { Id = 1, AccountId = 1, CategoryId = 1, Amount = 10, Description = "Groceries", Status = TransactionStatus.Completed });
             await seedContext.SaveChangesAsync();
         }
 
-        var controller = new TransactionsController(context)
-        {
-            ControllerContext = TestAuthHelper.GetControllerContext(111)
-        };
+        var controller = CreateController(context, 111);
 
         var result = await controller.GetById(1);
         var okResult = Assert.IsType<OkObjectResult>(result);
@@ -183,10 +175,7 @@ public class TransactionsControllerTests
     public async Task GetById_ReturnsNotFound_ForNonExistentTransaction()
     {
         var context = TestDbContextFactory.Create(Guid.NewGuid().ToString());
-        var controller = new TransactionsController(context)
-        {
-            ControllerContext = TestAuthHelper.GetControllerContext(111)
-        };
+        var controller = CreateController(context, 111);
 
         var result = await controller.GetById(999);
         Assert.IsType<NotFoundResult>(result);
@@ -198,16 +187,13 @@ public class TransactionsControllerTests
         var context = TestDbContextFactory.Create(Guid.NewGuid().ToString());
         using (var seedContext = context.CreateDbContext())
         {
-            seedContext.Accounts.Add(new Accounts { Id = 1, UserId = 111, AccountName = "Checking" });
-            seedContext.Categories.Add(new Category { Id = 1, UserId = 111, CategoryName = "Food" });
-            seedContext.Transactions.Add(new Transaction { Id = 1, AccountId = 1, CategoryId = 1, Amount = 10, Description = "Groceries", Status = TransactionStatus.Completed });
+            seedContext.Account.Add(new Account { Id = 1, UserId = 111, AccountName = "Checking" });
+            seedContext.Category.Add(new Category { Id = 1, UserId = 111, CategoryName = "Food" });
+            seedContext.Transaction.Add(new Transaction { Id = 1, AccountId = 1, CategoryId = 1, Amount = 10, Description = "Groceries", Status = TransactionStatus.Completed });
             await seedContext.SaveChangesAsync();
         }
 
-        var controller = new TransactionsController(context)
-        {
-            ControllerContext = TestAuthHelper.GetControllerContext(999) // Different user
-        };
+        var controller = CreateController(context, 999); // Different user
 
         var result = await controller.GetById(1);
         Assert.IsType<NotFoundResult>(result);
@@ -220,15 +206,13 @@ public class TransactionsControllerTests
         var context = TestDbContextFactory.Create(Guid.NewGuid().ToString());
         using (var seedContext = context.CreateDbContext())
         {
-            seedContext.Categories.Add(new Category { Id = 10, UserId = 111, CategoryName = "Groceries" });
-            seedContext.Accounts.Add(new Accounts { Id = 20, UserId = 999, AccountName = "Malicious Checking" });
+            seedContext.Category.Add(new Category { Id = 10, UserId = 111, CategoryName = "Groceries" });
+            seedContext.Account.Add(new Account { Id = 20, UserId = 999, AccountName = "Malicious Checking" });
             await seedContext.SaveChangesAsync();
         }
 
-        var controller = new TransactionsController(context)
-        {
-            ControllerContext = TestAuthHelper.GetControllerContext(111)
-        };
+        var controller = CreateController(context, 111);
+
 
         var incomingPayLoad = new Transaction
         {
@@ -252,16 +236,13 @@ public class TransactionsControllerTests
         var context = TestDbContextFactory.Create(Guid.NewGuid().ToString());
         using (var seedContext = context.CreateDbContext())
         {
-            seedContext.Accounts.Add(new Accounts { Id = 1, UserId = 111, AccountName = "Checking" });
-            seedContext.Categories.Add(new Category { Id = 1, UserId = 111, CategoryName = "Food" });
-            seedContext.Transactions.Add(new Transaction { Id = 1, AccountId = 1, CategoryId = 1, Amount = 10, Description = "Groceries", Status = TransactionStatus.Voided });
+            seedContext.Account.Add(new Account { Id = 1, UserId = 111, AccountName = "Checking" });
+            seedContext.Category.Add(new Category { Id = 1, UserId = 111, CategoryName = "Food" });
+            seedContext.Transaction.Add(new Transaction { Id = 1, AccountId = 1, CategoryId = 1, Amount = 10, Description = "Groceries", Status = TransactionStatus.Voided });
             await seedContext.SaveChangesAsync();
         }
 
-        var controller = new TransactionsController(context)
-        {
-            ControllerContext = TestAuthHelper.GetControllerContext(111)
-        };
+        var controller = CreateController(context, 111);
 
         var updatePayload = new Transaction
         {
@@ -271,7 +252,7 @@ public class TransactionsControllerTests
             Amount = 20,
             Description = "Updated Description",
             Status = TransactionStatus.Completed,
-            Account = new Accounts { Id = 1, UserId = 111, AccountName = "Checking" }
+            Account = new Account { Id = 1, UserId = 111, AccountName = "Checking" }
         };
 
         var result = await controller.Update(1, updatePayload);
@@ -285,16 +266,13 @@ public class TransactionsControllerTests
         var context = TestDbContextFactory.Create(Guid.NewGuid().ToString());
         using (var seedContext = context.CreateDbContext())
         {
-            seedContext.Accounts.Add(new Accounts { Id = 1, UserId = 111, AccountName = "Checking" });
-            seedContext.Categories.Add(new Category { Id = 1, UserId = 111, CategoryName = "Food" });
-            seedContext.Transactions.Add(new Transaction { Id = 1, AccountId = 1, CategoryId = 1, Amount = 10, Description = "Groceries", Status = TransactionStatus.Completed });
+            seedContext.Account.Add(new Account { Id = 1, UserId = 111, AccountName = "Checking" });
+            seedContext.Category.Add(new Category { Id = 1, UserId = 111, CategoryName = "Food" });
+            seedContext.Transaction.Add(new Transaction { Id = 1, AccountId = 1, CategoryId = 1, Amount = 10, Description = "Groceries", Status = TransactionStatus.Completed });
             await seedContext.SaveChangesAsync();
         }
 
-        var controller = new TransactionsController(context)
-        {
-            ControllerContext = TestAuthHelper.GetControllerContext(111)
-        };
+        var controller = CreateController(context, 111);
 
         var updatePayload = new Transaction
         {
@@ -316,10 +294,7 @@ public class TransactionsControllerTests
     public async Task Update_Fails_WhenTransactionDoesNotExist()
     {
         var context = TestDbContextFactory.Create(Guid.NewGuid().ToString());
-        var controller = new TransactionsController(context)
-        {
-            ControllerContext = TestAuthHelper.GetControllerContext(111)
-        };
+        var controller = CreateController(context, 111);
 
         var updatePayload = new Transaction
         {
@@ -341,16 +316,13 @@ public class TransactionsControllerTests
         var context = TestDbContextFactory.Create(Guid.NewGuid().ToString());
         using (var seedContext = context.CreateDbContext())
         {
-            seedContext.Accounts.Add(new Accounts { Id = 1, UserId = 111, AccountName = "Checking" });
-            seedContext.Categories.Add(new Category { Id = 1, UserId = 111, CategoryName = "Food" });
-            seedContext.Transactions.Add(new Transaction { Id = 1, AccountId = 1, CategoryId = 1, Amount = 10, Description = "Groceries", Status = TransactionStatus.Completed });
+            seedContext.Account.Add(new Account { Id = 1, UserId = 111, AccountName = "Checking" });
+            seedContext.Category.Add(new Category { Id = 1, UserId = 111, CategoryName = "Food" });
+            seedContext.Transaction.Add(new Transaction { Id = 1, AccountId = 1, CategoryId = 1, Amount = 10, Description = "Groceries", Status = TransactionStatus.Completed });
             await seedContext.SaveChangesAsync();
         }
 
-        var controller = new TransactionsController(context)
-        {
-            ControllerContext = TestAuthHelper.GetControllerContext(999)
-        };
+        var controller = CreateController(context, 999);
 
         var updatePayload = new Transaction
         {
@@ -373,16 +345,13 @@ public class TransactionsControllerTests
         var context = TestDbContextFactory.Create(Guid.NewGuid().ToString());
         using (var seedContext = context.CreateDbContext())
         {
-            seedContext.Accounts.Add(new Accounts { Id = 1, UserId = 111, AccountName = "Checking" });
-            seedContext.Categories.Add(new Category { Id = 1, UserId = 111, CategoryName = "Food" });
-            seedContext.Transactions.Add(new Transaction { Id = 1, AccountId = 1, CategoryId = 1, Amount = 10, Description = "Groceries", Status = TransactionStatus.Completed });
+            seedContext.Account.Add(new Account { Id = 1, UserId = 111, AccountName = "Checking" });
+            seedContext.Category.Add(new Category { Id = 1, UserId = 111, CategoryName = "Food" });
+            seedContext.Transaction.Add(new Transaction { Id = 1, AccountId = 1, CategoryId = 1, Amount = 10, Description = "Groceries", Status = TransactionStatus.Completed });
             await seedContext.SaveChangesAsync();
         }
 
-        var controller = new TransactionsController(context)
-        {
-            ControllerContext = TestAuthHelper.GetControllerContext(111)
-        };
+        var controller = CreateController(context, 111);
 
         var updatePayload = new Transaction
         {
@@ -404,16 +373,13 @@ public class TransactionsControllerTests
         var context = TestDbContextFactory.Create(Guid.NewGuid().ToString());
         using (var seedContext = context.CreateDbContext())
         {
-            seedContext.Accounts.Add(new Accounts { Id = 1, UserId = 111, AccountName = "Checking" });
-            seedContext.Categories.Add(new Category { Id = 1, UserId = 111, CategoryName = "Food" });
-            seedContext.Transactions.Add(new Transaction { Id = 1, AccountId = 1, CategoryId = 1, Amount = 10, Description = "Groceries", Status = TransactionStatus.Completed });
+            seedContext.Account.Add(new Account { Id = 1, UserId = 111, AccountName = "Checking" });
+            seedContext.Category.Add(new Category { Id = 1, UserId = 111, CategoryName = "Food" });
+            seedContext.Transaction.Add(new Transaction { Id = 1, AccountId = 1, CategoryId = 1, Amount = 10, Description = "Groceries", Status = TransactionStatus.Completed });
             await seedContext.SaveChangesAsync();
         }
 
-        var controller = new TransactionsController(context)
-        {
-            ControllerContext = TestAuthHelper.GetControllerContext(111)
-        };
+        var controller = CreateController(context, 111);
 
         var result = await controller.Archive(1);
         Assert.IsType<NoContentResult>(result);
@@ -423,10 +389,7 @@ public class TransactionsControllerTests
     public async Task Archive_Fails_ForNonExistentTransaction()
     {
         var context = TestDbContextFactory.Create(Guid.NewGuid().ToString());
-        var controller = new TransactionsController(context)
-        {
-            ControllerContext = TestAuthHelper.GetControllerContext(111)
-        };
+        var controller = CreateController(context, 111);
 
         var result = await controller.Archive(999);
         Assert.IsType<NotFoundResult>(result);
@@ -438,16 +401,13 @@ public class TransactionsControllerTests
         var context = TestDbContextFactory.Create(Guid.NewGuid().ToString());
         using (var seedContext = context.CreateDbContext())
         {
-            seedContext.Accounts.Add(new Accounts { Id = 1, UserId = 111, AccountName = "Checking" });
-            seedContext.Categories.Add(new Category { Id = 1, UserId = 111, CategoryName = "Food" });
-            seedContext.Transactions.Add(new Transaction { Id = 1, AccountId = 1, CategoryId = 1, Amount = 10, Description = "Groceries", Status = TransactionStatus.Completed });
+            seedContext.Account.Add(new Account { Id = 1, UserId = 111, AccountName = "Checking" });
+            seedContext.Category.Add(new Category { Id = 1, UserId = 111, CategoryName = "Food" });
+            seedContext.Transaction.Add(new Transaction { Id = 1, AccountId = 1, CategoryId = 1, Amount = 10, Description = "Groceries", Status = TransactionStatus.Completed });
             await seedContext.SaveChangesAsync();
         }
 
-        var controller = new TransactionsController(context)
-        {
-            ControllerContext = TestAuthHelper.GetControllerContext(999) // Different user
-        };
+        var controller = CreateController(context, 999); // Different user
 
         var result = await controller.Archive(1);
         Assert.IsType<NotFoundResult>(result);

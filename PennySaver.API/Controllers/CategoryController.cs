@@ -3,7 +3,7 @@ namespace PennySaver.API.Controllers;
 [Authorize]
 [ApiController]
 [Route("api/[controller]")]
-public class CategoriesController(IDbContextFactory<PennySaverDbContext> dbContext) : ControllerBase
+public class CategoryController(IDbContextFactory<PennySaverDbContext> dbContext) : ControllerBase
 {
     private readonly IDbContextFactory<PennySaverDbContext> _context = dbContext;
 
@@ -17,7 +17,7 @@ public class CategoriesController(IDbContextFactory<PennySaverDbContext> dbConte
     {
         int userId = GetCurrentUserId();
         using var context = await _context.CreateDbContextAsync();
-        var categories = context.Categories.Where(c => c.UserId == userId).ToList();
+        var categories = context.Category.Where(c => c.UserId == userId).ToList();
         return Ok(categories);
     }
     
@@ -26,7 +26,7 @@ public class CategoriesController(IDbContextFactory<PennySaverDbContext> dbConte
     {
         int userId = GetCurrentUserId();
         using var context = await _context.CreateDbContextAsync();
-        var category = context.Categories.FirstOrDefault(c => c.Id == id && c.UserId == userId);
+        var category = context.Category.FirstOrDefault(c => c.Id == id && c.UserId == userId);
         if (category == null) return NotFound();
         return Ok(category);
     }
@@ -38,10 +38,10 @@ public class CategoriesController(IDbContextFactory<PennySaverDbContext> dbConte
         category.UserId = GetCurrentUserId();
         using var context = await _context.CreateDbContextAsync();
         
-        bool exists = await context.Categories.AnyAsync(c => c.CategoryName == category.CategoryName && c.UserId == category.UserId);
+        bool exists = await context.Category.AnyAsync(c => c.CategoryName == category.CategoryName && c.UserId == category.UserId);
         if (exists) return BadRequest("Category with the same name already exists for this user.");
 
-        context.Categories.Add(category);
+        context.Category.Add(category);
         await context.SaveChangesAsync();
         
         return CreatedAtAction(nameof(GetById), new { id = category.Id }, category);
@@ -60,7 +60,7 @@ public class CategoriesController(IDbContextFactory<PennySaverDbContext> dbConte
 
         using var context = await _context.CreateDbContextAsync();
         
-        var exists = await context.Categories.AnyAsync(c => c.Id == id && c.UserId == userId);
+        var exists = await context.Category.AnyAsync(c => c.Id == id && c.UserId == userId);
         if (!exists) return NotFound();
 
         category.UserId = userId;
@@ -75,10 +75,10 @@ public class CategoriesController(IDbContextFactory<PennySaverDbContext> dbConte
     {
         int userId = GetCurrentUserId();
         using var context = await _context.CreateDbContextAsync();
-        var category = await context.Categories.FirstOrDefaultAsync(c => c.Id == id && c.UserId == userId);
+        var category = await context.Category.FirstOrDefaultAsync(c => c.Id == id && c.UserId == userId);
         if (category == null) return NotFound();
 
-        context.Categories.Remove(category);
+        context.Category.Remove(category);
         await context.SaveChangesAsync();
 
         return NoContent();

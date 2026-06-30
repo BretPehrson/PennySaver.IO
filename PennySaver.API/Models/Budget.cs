@@ -1,6 +1,6 @@
 namespace PennySaver.API.Models;
 
-public class Budgets
+public class Budget
 {
     [Key]
     public int Id { get; set; }

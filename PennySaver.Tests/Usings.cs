@@ -8,3 +8,5 @@ global using PennySaver.API.Controllers;
 global using PennySaver.API.Models;
 global using Xunit;
 global using PennySaver.Tests.Data;
+global using Microsoft.Extensions.Options;
+global using Microsoft.AspNetCore.Routing;

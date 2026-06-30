@@ -21,7 +21,7 @@ public class Transaction
 
     [Required]
     public int AccountId { get; set; }
-    public Accounts? Account { get; set; } = null!;
+    public Account? Account { get; set; } = null!;
     
     [Required]
     public int CategoryId { get; set; }

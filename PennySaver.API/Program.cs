@@ -1,10 +1,3 @@
-using System.Text;
-using Microsoft.AspNetCore.Authentication.JwtBearer;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.IdentityModel.Tokens;
-using PennySaver.API.Data;
-using PennySaver.API.Models;
-
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddOpenApi();
@@ -21,11 +14,11 @@ builder.Services.AddCors(options =>
                         .AllowAnyHeader());
 });
 
-builder.Services.Configure<JwtOptions>(
+builder.Services.Configure<JwtOption>(
     builder.Configuration.GetSection("JwtSettings")
 );
 
-var jwtOptions = builder.Configuration.GetSection("JwtSettings").Get<JwtOptions>() ?? throw new InvalidOperationException("JWT Settings are missing.");
+var jwtOptions = builder.Configuration.GetSection("JwtSettings").Get<JwtOption>() ?? throw new InvalidOperationException("JWT Settings are missing.");
 
 builder.Services.AddAuthentication(options =>
 {
@@ -78,7 +71,7 @@ using (var scope = app.Services.CreateScope())
     try
     {
         var contextFactory = scope.ServiceProvider.GetRequiredService<IDbContextFactory<PennySaverDbContext>>();
-        SeedUsers.Seed(contextFactory);
+        //SeedUsers.Seed(contextFactory);
     }
     catch (Exception ex)
     {

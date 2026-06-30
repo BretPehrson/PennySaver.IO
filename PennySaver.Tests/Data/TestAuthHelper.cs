@@ -2,12 +2,12 @@ namespace PennySaver.Tests.Data;
 
 public static class TestAuthHelper
 {
-    public static ControllerContext GetControllerContext(int userId)
+    public static ControllerContext GetControllerContext(int? userId)
     {
         var user = new List<Claim> 
         {
-             new(JwtRegisteredClaimNames.Sub, userId.ToString()),
-             new(ClaimTypes.NameIdentifier, userId.ToString())
+             new(JwtRegisteredClaimNames.Sub, userId?.ToString() ?? string.Empty),
+             new(ClaimTypes.NameIdentifier, userId?.ToString() ?? string.Empty)
         };
         
         var identity = new ClaimsIdentity(user, "TestAuth");
