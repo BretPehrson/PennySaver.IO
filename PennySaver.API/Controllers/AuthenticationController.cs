@@ -34,7 +34,7 @@ public class AuthController(IDbContextFactory<PennySaverDbContext> dbContextFact
     }
 
     [AllowAnonymous]
-    [HttpPost("token")]
+    [HttpPost("issuetoken")]
     public async Task<IActionResult> IssueToken([FromBody] LoginRequest request)
     {
         if (request == null || string.IsNullOrEmpty(request.Email) || string.IsNullOrEmpty(request.Password))
