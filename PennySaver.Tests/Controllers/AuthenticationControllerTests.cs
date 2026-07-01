@@ -32,7 +32,7 @@ public class AuthenticationControllerTests
         var newUser = new User
         {
             Email = "test@example.com",
-            PasswordHash = "Password123!"
+            Password = "Password123!"
         };
 
         var result = await controller.Register(newUser);
@@ -47,8 +47,8 @@ public class AuthenticationControllerTests
         Assert.NotNull(savedUser);
         Assert.Equal(newUser.Email, savedUser.Email);
 
-        Assert.NotEqual(newUser.PasswordHash, savedUser.PasswordHash);
-        Assert.True(BCrypt.Net.BCrypt.Verify("Password123!", savedUser.PasswordHash));
+        Assert.NotEqual(newUser.Password, savedUser.Password);
+        Assert.True(BCrypt.Net.BCrypt.Verify("Password123!", savedUser.Password));
     }
 
     [Fact]
@@ -59,7 +59,7 @@ public class AuthenticationControllerTests
         var newUser = new User
         {
             Email = "test@example.com",
-            PasswordHash = "Password123!",
+            Password = "Password123!",
             CreatedAt = DateTime.UtcNow
         };
         var newUserResult = await controller.Register(newUser);
@@ -69,7 +69,7 @@ public class AuthenticationControllerTests
         var duplicateUser = new User
         {
             Email = "test@example.com",
-            PasswordHash = "DifferentPassword123!"
+            Password = "DifferentPassword123!"
         };
         var result = await controller.Register(duplicateUser);
 
@@ -86,7 +86,7 @@ public class AuthenticationControllerTests
         var user = new User
         {
             Email = "test@example.com",
-            PasswordHash = "Password123!"
+            Password = "Password123!"
         };
         var result = await controller.Register(user);
         var okResult = Assert.IsType<OkObjectResult>(result);
@@ -106,7 +106,7 @@ public class AuthenticationControllerTests
         var user = new User
         {
             Email = "test@example.com",
-            PasswordHash = "Password123!"
+            Password = "Password123!"
         };
         var result = await controller.Register(user);
         var okResult = Assert.IsType<OkObjectResult>(result);
@@ -146,7 +146,7 @@ public class AuthenticationControllerTests
         var user = new User
         {
             Email = "test@example.com",
-            PasswordHash = "Password123!"
+            Password = "Password123!"
         };
 
         var targetTokenString = "A_Valid_Mock_Base64_Encoded_Token_String_For_Testing_Purposes";
@@ -182,7 +182,7 @@ public class AuthenticationControllerTests
         var user = new User
         {
             Email = null!,
-            PasswordHash = "Password123!"
+            Password = "Password123!"
         };
 
         var result = await controller.Register(user);
@@ -199,7 +199,7 @@ public class AuthenticationControllerTests
         var user = new User
         {
             Email = "test@example.com",
-            PasswordHash = null!
+            Password = null!
         };
 
         var result = await controller.Register(user);
@@ -228,7 +228,7 @@ public class AuthenticationControllerTests
         var user = new User
         {
             Email = "test@example.com",
-            PasswordHash = "Password123!"
+            Password = "Password123!"
         };
 
         var expiredRefreshToken = new RefreshToken
@@ -259,7 +259,7 @@ public class AuthenticationControllerTests
         var user = new User
         {
             Email = "test@example.com",
-            PasswordHash = "Password123!"
+            Password = "Password123!"
         };
 
         var validRefreshToken = new RefreshToken

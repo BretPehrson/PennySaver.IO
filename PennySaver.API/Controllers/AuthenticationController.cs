@@ -19,11 +19,11 @@ public class AuthController(IDbContextFactory<PennySaverDbContext> dbContextFact
         if (context.User.Any(u => u.Email == model.Email))
             return BadRequest(new { message = "Email is already registered." });
 
-        var passwordHash = BCrypt.Net.BCrypt.HashPassword(model.Password);
+        var Password = BCrypt.Net.BCrypt.HashPassword(model.Password);
         var user = new User
         {
             Email = model.Email,
-            Password = passwordHash,
+            Password = Password,
             CreatedAt = DateTime.UtcNow
         };
 
