@@ -20,8 +20,7 @@ public static class SeedUsers
             CreatedAt = DateTime.UtcNow
         };
 
-        var password = new PasswordHasher<User>();
-        testUser.PasswordHash = password.HashPassword(testUser, "Password123!");
+        testUser.Password = BCrypt.Net.BCrypt.HashPassword("Password123!");
         dbContext.User.Add(testUser);
         dbContext.SaveChanges();
     }

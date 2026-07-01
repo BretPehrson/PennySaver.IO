@@ -11,7 +11,7 @@ public class AuthController(IDbContextFactory<PennySaverDbContext> dbContextFact
     [HttpPost("register")]
     public async Task<IActionResult> Register([FromBody] User model)
     {
-        if ( model.Email == null || model.PasswordHash == null)
+        if ( model.Email == null || model.Password == null)
             return BadRequest(new { message = "Email and password are required." });
 
         using var context = _dbContextFactory.CreateDbContext();
@@ -19,11 +19,11 @@ public class AuthController(IDbContextFactory<PennySaverDbContext> dbContextFact
         if (context.User.Any(u => u.Email == model.Email))
             return BadRequest(new { message = "Email is already registered." });
 
-        var passwordHash = BCrypt.Net.BCrypt.HashPassword(model.PasswordHash);
+        var passwordHash = BCrypt.Net.BCrypt.HashPassword(model.Password);
         var user = new User
         {
             Email = model.Email,
-            PasswordHash = passwordHash,
+            Password = passwordHash,
             CreatedAt = DateTime.UtcNow
         };
 
@@ -48,7 +48,7 @@ public class AuthController(IDbContextFactory<PennySaverDbContext> dbContextFact
         if (user == null)
             return Unauthorized(new { message = "Invalid username or password." });
 
-        bool isPasswordValid = BCrypt.Net.BCrypt.Verify(request.Password, user.PasswordHash);
+        bool isPasswordValid = BCrypt.Net.BCrypt.Verify(request.Password, user.Password);
         if (!isPasswordValid) return Unauthorized(new { message = "Invalid username or password." });
 
         var claims = new[]
