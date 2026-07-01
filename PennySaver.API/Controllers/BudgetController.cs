@@ -8,7 +8,7 @@ public class BudgetController(IDbContextFactory<PennySaverDbContext> dbContext) 
     private readonly IDbContextFactory<PennySaverDbContext> _context = dbContext;
 
     private int GetCurrentUserId() =>
-        int.TryParse(User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value, out var userId) 
+        int.TryParse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value, out var userId) 
         ? userId 
         : throw new UnauthorizedAccessException();
 

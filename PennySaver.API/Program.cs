@@ -67,6 +67,8 @@ builder.Services.AddSwaggerGen(options =>
 
 var app = builder.Build();
 
+app.UseCors("AllowReactApp");
+
 using (var scope = app.Services.CreateScope())
 {
     try
@@ -96,6 +98,5 @@ app.UseAuthorization();
 
 app.MapControllers();
 
-app.UseCors("AllowReactApp");
 
 app.Run();

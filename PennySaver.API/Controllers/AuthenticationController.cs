@@ -53,8 +53,10 @@ public class AuthController(IDbContextFactory<PennySaverDbContext> dbContextFact
 
         var claims = new[]
         {
+            new Claim(ClaimTypes.NameIdentifier, user.UserId.ToString()),
             new Claim(JwtRegisteredClaimNames.Sub, user.UserId.ToString()),
             new Claim(JwtRegisteredClaimNames.Email, user.Email),
+            new Claim(ClaimTypes.Email, user.Email),
             new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
         };
 
@@ -112,8 +114,10 @@ public class AuthController(IDbContextFactory<PennySaverDbContext> dbContextFact
 
         var claims = new[]
         {
+            new Claim(ClaimTypes.NameIdentifier, storedToken.User.UserId.ToString()),
             new Claim(JwtRegisteredClaimNames.Sub, storedToken.User.UserId.ToString()),
             new Claim(JwtRegisteredClaimNames.Email, storedToken.User.Email),
+            new Claim(ClaimTypes.Email, storedToken.User.Email),
             new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
         };
 
@@ -149,6 +153,35 @@ public class AuthController(IDbContextFactory<PennySaverDbContext> dbContextFact
             Token_type = "Bearer",
             expires_utc = expires
         });
+    }
+
+    [HttpPost("logout")]
+    public async Task<IActionResult> Logout()
+    {
+        if (!Request.Cookies.TryGetValue("refreshToken", out var refreshToken))
+        {
+            using var context = _dbContextFactory.CreateDbContext();
+
+            var storedToken = await context.RefreshToken
+                .Include(t => t.User)
+                .FirstOrDefaultAsync(rt => rt.Token == refreshToken);
+
+            if (storedToken != null)            
+            {
+                context.RefreshToken.Remove(storedToken);
+                await context.SaveChangesAsync();
+            }
+        }
+
+        Response.Cookies.Append("RefreshToken", "", new CookieOptions
+        {
+            HttpOnly = true,
+            Secure = true,
+            SameSite = SameSiteMode.Strict,
+            Expires = DateTime.UtcNow.AddDays(-1)
+        });
+
+        return Ok(new { message = "Logged out successfully." });
     }
 
     private static string GenerateSecureRefreshToken()
