@@ -1,11 +1,13 @@
 import {useState} from "react";
 import axios from "axios";
 import api from "./api";
+import { useNavigate } from "react-router-dom";
 
 function Login() {
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
     const [error, setError] = useState("");
+    const navigate = useNavigate();
     const [loading, setLoading] = useState(false);
 
     const handleSubmit = async (e) => {
@@ -23,8 +25,8 @@ function Login() {
 
             const { token } = response.data;
             localStorage.setItem("token", token);
-
-            alert("Login successful!");
+            
+            navigate("/dashboard");
         }
         catch (err) {
             const serverMessage = err.response?.data?.message || "An error occurred during login.";
