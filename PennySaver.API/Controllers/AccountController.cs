@@ -8,7 +8,7 @@ namespace PennySaver.API.Controllers
         private readonly IDbContextFactory<PennySaverDbContext> _context = dbContext;
 
         private int GetCurrentUserId() =>
-            int.TryParse(User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value, out var userId) 
+            int.TryParse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value, out var userId) 
             ? userId 
             : throw new UnauthorizedAccessException();
 
@@ -32,22 +32,37 @@ namespace PennySaver.API.Controllers
         }
 
         [HttpPost]
-        public async Task<IActionResult> Create([FromBody] Account account)
+        public async Task<IActionResult> Create([FromBody] AccountCreateDto dto)
         {
+            if (dto == null) return BadRequest("Account data is required.");
+            if (dto.AccountName == null || dto.AccountName.Trim() == "") return BadRequest("The AccountName field is required.");
+            if (!ModelState.IsValid) return BadRequest(ModelState);
+            if (dto.Balance < 0) return BadRequest("Balance cannot be negative.");
+            if (dto.Institution != null && dto.Institution.Length > 100) return BadRequest("Institution name cannot exceed 100 characters.");
+
             //Overwrite any provided UserId with the logged-in user's ID to enforce ownership
-            account.UserId = GetCurrentUserId();
+            var newAccount = new Account
+            {
+                AccountName = dto.AccountName,
+                Institution = dto.Institution!,
+                Type = dto.Type,
+                Balance = dto.Balance,
+                UserId = GetCurrentUserId()
+            };
             using var context = await _context.CreateDbContextAsync();
-            context.Account.Add(account);
+            context.Account.Add(newAccount);
             await context.SaveChangesAsync();
             
-            return CreatedAtAction(nameof(GetById), new { id = account.Id }, account);
+            return CreatedAtAction(nameof(GetById), new { id = newAccount.Id }, newAccount);
         }
 
         [HttpPut("{id}")]
-        public async Task<IActionResult> Update(int id, [FromBody] Account account)
+        public async Task<IActionResult> Update(int id, [FromBody] AccountCreateDto dto)
         {
-            if (id != account.Id) return BadRequest("ID mismatch.");
             if (!ModelState.IsValid) return BadRequest(ModelState);
+            if (dto.AccountName == null || dto.AccountName.Trim() == "") return BadRequest("The AccountName field is required.");
+            if (dto.Balance < 0) return BadRequest("Balance cannot be negative.");
+            if (dto.Institution != null && dto.Institution.Length > 100) return BadRequest("Institution name cannot exceed 100 characters.");
 
             int userId = GetCurrentUserId();
             using var context = await _context.CreateDbContextAsync();
@@ -55,8 +70,14 @@ namespace PennySaver.API.Controllers
             var exists = await context.Account.AnyAsync(a => a.Id == id && a.UserId == userId);
             if (!exists) return NotFound();
 
-            account.UserId = userId;
-            context.Entry(account).State = EntityState.Modified;
+            var accountToUpdate = await context.Account.FirstOrDefaultAsync(a => a.Id == id && a.UserId == userId);
+            if (accountToUpdate == null) return NotFound();
+
+            accountToUpdate.AccountName = dto.AccountName;
+            accountToUpdate.Institution = dto.Institution!;
+            accountToUpdate.Type = dto.Type;
+            accountToUpdate.Balance = dto.Balance;
+
             await context.SaveChangesAsync();
             
             return NoContent();

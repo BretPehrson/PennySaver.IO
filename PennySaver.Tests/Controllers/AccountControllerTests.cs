@@ -20,26 +20,6 @@ public class AccountControllerTests
     };
 
     [Fact]
-    public async Task Create_ForcesOwnershipToLoggedInUser()
-    {
-        var controller = CreateAccountController(_context, 111);
-
-        var incomingPayLoad = new Account
-        {
-            Id = 5,
-            AccountName = "New Account",
-            UserId = 999 // Attempt to set to another user
-        };
-
-        var result = await controller.Create(incomingPayLoad);
-
-        var createResult = Assert.IsType<CreatedAtActionResult>(result);
-        var createdAccount = Assert.IsType<Account>(createResult.Value);
-
-        Assert.Equal(111, createdAccount.UserId);
-    }
-
-    [Fact]
     public async Task GetAll_ReturnsOnlyLoggedInUserAccounts()
     {
         var context = TestDbContextFactory.Create(Guid.NewGuid().ToString());
@@ -63,6 +43,56 @@ public class AccountControllerTests
 
         Assert.Equal(2, accounts.Count);
         Assert.All(accounts, a => Assert.Equal(111, a.UserId));
+    }
+
+    [Fact]
+    public async Task Create_Succeeds_WhenAccountNameIsMissing()
+    {
+        var controller = CreateAccountController(_context, 111);
+
+        var incomingPayLoad = new AccountCreateDto
+        {
+            Balance = 100.00m,
+            Type = Account.AccountType.Checking
+        };
+
+        var result = await controller.Create(incomingPayLoad);
+
+        var createResult = Assert.IsType<BadRequestObjectResult>(result);
+        Assert.Equal("The AccountName field is required.", createResult.Value);
+    }
+
+    [Fact]
+    public async Task Create_Fails_WhenBalanceIsNegative()
+    {
+        var controller = CreateAccountController(_context, 111);
+
+        var incomingPayLoad = new AccountCreateDto
+        {
+            AccountName = "New Account",
+            Balance = -50.00m,
+            Type = Account.AccountType.Checking
+        };
+
+        var result = await controller.Create(incomingPayLoad);
+        Assert.IsType<BadRequestObjectResult>(result);
+    }
+
+    [Fact]
+    public async Task Create_Fails_WhenInstitutionNameIsTooLong()
+    {
+        var controller = CreateAccountController(_context, 111);
+
+        var incomingPayLoad = new AccountCreateDto
+        {
+            AccountName = "New Account",
+            Institution = new string('A', 101), // 101 characters
+            Balance = 100.00m,
+            Type = Account.AccountType.Checking
+        };
+
+        var result = await controller.Create(incomingPayLoad);
+        Assert.IsType<BadRequestObjectResult>(result);
     }
 
     [Fact]
@@ -270,5 +300,251 @@ public class AccountControllerTests
         var result = await controller.Create(incomingPayLoad);
 
         Assert.IsType<OkObjectResult>(result);
+    }
+
+    [Fact]
+    public async Task Update_Succeeds_WhenAccountBelongsToLoggedInUser()
+    {
+        var context = TestDbContextFactory.Create(Guid.NewGuid().ToString());
+        using (var seedContext = context.CreateDbContext())
+        {
+            seedContext.Account.Add(new Account { Id = 1, UserId = 111, AccountName = "User 111 Account" });
+            await seedContext.SaveChangesAsync();
+        }
+
+        var controller = CreateAccountController(context, 111);
+
+        var updatePayload = new AccountCreateDto
+        {
+            AccountName = "Updated Account Name",
+            Institution = "Updated Institution",
+            Type = Account.AccountType.Savings,
+            Balance = 500.00m
+        };
+
+        var result = await controller.Update(1, updatePayload);
+
+        Assert.IsType<NoContentResult>(result);
+    }
+
+    [Fact]
+    public async Task Update_Fails_WhenAccountBelongsToAnotherUser()
+    {
+        var context = TestDbContextFactory.Create(Guid.NewGuid().ToString());
+        using (var seedContext = context.CreateDbContext())
+        {
+            seedContext.Account.Add(new Account { Id = 1, UserId = 999, AccountName = "Malicious Checking" });
+            await seedContext.SaveChangesAsync();
+        }
+
+        var controller = CreateAccountController(context, 111);
+
+        var updatePayload = new AccountCreateDto
+        {
+            AccountName = "Updated Account Name",
+            Institution = "Updated Institution",
+            Type = Account.AccountType.Savings,
+            Balance = 500.00m
+        };
+
+        var result = await controller.Update(1, updatePayload);
+
+        Assert.IsType<NotFoundResult>(result);
+    }
+
+    [Fact]
+    public async Task Update_Fails_WhenAccountDoesNotExist()
+    {
+        var context = TestDbContextFactory.Create(Guid.NewGuid().ToString());
+
+        var controller = CreateAccountController(context, 111);
+
+        var updatePayload = new AccountCreateDto
+        {
+            AccountName = "Updated Account Name",
+            Institution = "Updated Institution",
+            Type = Account.AccountType.Savings,
+            Balance = 500.00m
+        };
+
+        var result = await controller.Update(999, updatePayload);
+
+        Assert.IsType<NotFoundResult>(result);
+    }
+
+    [Fact]
+    public async Task Update_Fails_WhenUserIsUnauthorized()
+    {
+        var context = TestDbContextFactory.Create(Guid.NewGuid().ToString());
+        using (var seedContext = context.CreateDbContext())
+        {
+            seedContext.Account.Add(new Account { Id = 1, UserId = 111, AccountName = "User 111 Account" });
+            await seedContext.SaveChangesAsync();
+        }
+
+        var controller = CreateAccountController(context, null); // No user ID
+
+        var updatePayload = new AccountCreateDto
+        {
+            AccountName = "Updated Account Name",
+            Institution = "Updated Institution",
+            Type = Account.AccountType.Savings,
+            Balance = 500.00m
+        };
+
+        await Assert.ThrowsAsync<UnauthorizedAccessException>(() => controller.Update(1, updatePayload));
+    }
+
+    [Fact]
+    public async Task Update_Fails_WhenAccountNameIsMissing()
+    {
+        var context = TestDbContextFactory.Create(Guid.NewGuid().ToString());
+        using (var seedContext = context.CreateDbContext())
+        {
+            seedContext.Account.Add(new Account { Id = 1, UserId = 111, AccountName = "User 111 Account" });
+            await seedContext.SaveChangesAsync();
+        }
+
+        var controller = CreateAccountController(context, 111);
+
+        var updatePayload = new AccountCreateDto
+        {
+            Institution = "Updated Institution",
+            Type = Account.AccountType.Savings,
+            Balance = 500.00m
+        };
+
+        var result = await controller.Update(1, updatePayload);
+
+        var badRequestResult = Assert.IsType<BadRequestObjectResult>(result);
+        Assert.Equal("The AccountName field is required.", badRequestResult.Value);
+    }
+
+    [Fact]
+    public async Task Update_Fails_WhenBalanceIsNegative()
+    {
+        var context = TestDbContextFactory.Create(Guid.NewGuid().ToString());
+        using (var seedContext = context.CreateDbContext())
+        {
+            seedContext.Account.Add(new Account { Id = 1, UserId = 111, AccountName = "User 111 Account" });
+            await seedContext.SaveChangesAsync();
+        }
+
+        var controller = CreateAccountController(context, 111);
+
+        var updatePayload = new AccountCreateDto
+        {
+            AccountName = "Updated Account Name",
+            Institution = "Updated Institution",
+            Type = Account.AccountType.Savings,
+            Balance = -100.00m
+        };
+
+        var result = await controller.Update(1, updatePayload);
+
+        var badRequestResult = Assert.IsType<BadRequestObjectResult>(result);
+        Assert.Equal("Balance cannot be negative.", badRequestResult.Value);
+    }
+
+    [Fact]
+    public async Task Update_Fails_WhenInstitutionNameIsTooLong()
+    {
+        var context = TestDbContextFactory.Create(Guid.NewGuid().ToString());
+        using (var seedContext = context.CreateDbContext())
+        {
+            seedContext.Account.Add(new Account { Id = 1, UserId = 111, AccountName = "User 111 Account" });
+            await seedContext.SaveChangesAsync();
+        }
+
+        var controller = CreateAccountController(context, 111);
+
+        var updatePayload = new AccountCreateDto
+        {
+            AccountName = "Updated Account Name",
+            Institution = new string('A', 101), // 101 characters
+            Type = Account.AccountType.Savings,
+            Balance = 500.00m
+        };
+
+        var result = await controller.Update(1, updatePayload);
+
+        var badRequestResult = Assert.IsType<BadRequestObjectResult>(result);
+        Assert.Equal("Institution name cannot exceed 100 characters.", badRequestResult.Value);
+    }
+
+    [Fact]
+    public async Task Delete_Succeeds_WhenAccountBelongsToLoggedInUser()
+    {
+        var context = TestDbContextFactory.Create(Guid.NewGuid().ToString());
+        using (var seedContext = context.CreateDbContext())
+        {
+            seedContext.Account.Add(new Account { Id = 1, UserId = 111, AccountName = "User 111 Account" });
+            await seedContext.SaveChangesAsync();
+        }
+
+        var controller = CreateAccountController(context, 111);
+
+        var result = await controller.Delete(1);
+
+        Assert.IsType<NoContentResult>(result);
+    }
+
+    [Fact]
+    public async Task Delete_Fails_WhenAccountBelongsToAnotherUser()
+    {
+        var context = TestDbContextFactory.Create(Guid.NewGuid().ToString());
+        using (var seedContext = context.CreateDbContext())
+        {
+            seedContext.Account.Add(new Account { Id = 1, UserId = 999, AccountName = "Malicious Checking" });
+            await seedContext.SaveChangesAsync();
+        }
+
+        var controller = CreateAccountController(context, 111);
+
+        var result = await controller.Delete(1);
+
+        Assert.IsType<NotFoundResult>(result);
+    }
+
+    [Fact]
+    public async Task Delete_Fails_WhenAccountDoesNotExist()
+    {
+        var context = TestDbContextFactory.Create(Guid.NewGuid().ToString());
+
+        var controller = CreateAccountController(context, 111);
+
+        var result = await controller.Delete(999);
+
+        Assert.IsType<NotFoundResult>(result);
+    }
+
+    [Fact]
+    public async Task Delete_Fails_WhenUserIsUnauthorized()
+    {
+        var context = TestDbContextFactory.Create(Guid.NewGuid().ToString());
+        using (var seedContext = context.CreateDbContext())
+        {
+            seedContext.Account.Add(new Account { Id = 1, UserId = 111, AccountName = "User 111 Account" });
+            await seedContext.SaveChangesAsync();
+        }
+
+        var controller = CreateAccountController(context, null); // No user ID
+
+        await Assert.ThrowsAsync<UnauthorizedAccessException>(() => controller.Delete(1));
+    }
+
+    [Fact]
+    public async Task Delete_Fails_WhenUserIsAuthenticatedButUserIdClaimIsMissing()
+    {
+        var context = TestDbContextFactory.Create(Guid.NewGuid().ToString());
+        using (var seedContext = context.CreateDbContext())
+        {
+            seedContext.Account.Add(new Account { Id = 1, UserId = 111, AccountName = "User 111 Account" });
+            await seedContext.SaveChangesAsync();
+        }
+
+        var controller = CreateAccountController(context, null);
+        
+        await Assert.ThrowsAsync<UnauthorizedAccessException>(() => controller.Delete(1));
     }
 }
