@@ -14,6 +14,8 @@ export default function Accounts() {
 
   const [deletingId, setDeletingId] = useState(null); // Track which account is in "delete confirmation" mode
 
+  const [isAutomated, setIsAutomated] = useState(false);
+
   const ACCOUNT_TYPE_LABELS = [
     "Checking",
     "Savings",

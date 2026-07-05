@@ -18,6 +18,8 @@ builder.Services.AddCors(options =>
 builder.Services.Configure<JwtOption>(
     builder.Configuration.GetSection("JwtSettings")
 );
+builder.Services.AddScoped<IBankSyncService, MockBankSyncService>();
+builder.Services.AddScoped<IAccountSyncCoordinator, AccountSyncCoordinator>();
 
 var jwtOptions = builder.Configuration.GetSection("JwtSettings").Get<JwtOption>() ?? throw new InvalidOperationException("JWT Settings are missing.");
 

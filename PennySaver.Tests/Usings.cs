@@ -10,3 +10,4 @@ global using Xunit;
 global using PennySaver.Tests.Data;
 global using Microsoft.Extensions.Options;
 global using Microsoft.AspNetCore.Routing;
+global using PennySaver.API.Services;

@@ -12,12 +12,23 @@ namespace PennySaver.API.Controllers
             ? userId 
             : throw new UnauthorizedAccessException();
 
+        private static AccountResponseDto MapToDto(Account account) => new()
+        {
+            AccountName = account.AccountName,
+            Institution = account.Institution,
+            Type = account.Type,
+            Balance = account.Balance,
+            IsAutomated = account.IsAutomated,
+            PlaidAccountId = account.PlaidAccountId,
+            SyncStatus = account.SyncStatus
+        };
+
         [HttpGet]
         public async Task<IActionResult> GetAll()
         {
             var userId = GetCurrentUserId();
             using var context = await _context.CreateDbContextAsync();
-            var userAccounts = context.Account.Where(a => a.UserId == userId).ToList();
+            var userAccounts = context.Account.Where(a => a.UserId == userId).Select(a => MapToDto(a)).ToList();
             return Ok(userAccounts);
         }
 
@@ -28,11 +39,27 @@ namespace PennySaver.API.Controllers
             using var context = await _context.CreateDbContextAsync();
             var account = context.Account.FirstOrDefault(a => a.Id == id && a.UserId == userId);
             if (account == null) return NotFound();
-            return Ok(account);
+            return Ok(MapToDto(account));
+        }
+
+        [HttpPost("refresh")]
+        public async Task<IActionResult> RefreshBalance([FromServices] IAccountSyncCoordinator SyncCoordinator)
+        {
+            int userId = GetCurrentUserId();
+            try
+            {
+                await SyncCoordinator.RefreshUserBalancesAsync(userId);
+                return Ok("Automated account balances refreshed successfully.");
+            }
+            catch (Exception ex)
+            {
+                Console.Error.WriteLine($"Error refreshing balances: {ex.Message}");
+                return StatusCode(500, "An error occurred while refreshing account balances. Please try again later.");
+            }
         }
 
         [HttpPost]
-        public async Task<IActionResult> Create([FromBody] AccountCreateDto dto)
+        public async Task<IActionResult> Create([FromBody] AccountCreateDto dto, [FromServices] IBankSyncService syncService)
         {
             if (dto == null) return BadRequest("Account data is required.");
             if (dto.AccountName == null || dto.AccountName.Trim() == "") return BadRequest("The AccountName field is required.");
@@ -40,20 +67,52 @@ namespace PennySaver.API.Controllers
             if (dto.Balance < 0) return BadRequest("Balance cannot be negative.");
             if (dto.Institution != null && dto.Institution.Length > 100) return BadRequest("Institution name cannot exceed 100 characters.");
 
+            int currentUserId = GetCurrentUserId();
+
             //Overwrite any provided UserId with the logged-in user's ID to enforce ownership
             var newAccount = new Account
             {
+                UserId = currentUserId,
                 AccountName = dto.AccountName,
                 Institution = dto.Institution!,
                 Type = dto.Type,
+                IsAutomated = dto.IsAutomated,
                 Balance = dto.Balance,
-                UserId = GetCurrentUserId()
+                SyncStatus = AccountSyncStatus.Healthy
             };
+
+            if (dto.IsAutomated)
+            {
+                if (string.IsNullOrWhiteSpace(dto.PlaidAccessToken))
+                {
+                    return BadRequest("Plaid access token is required for automated accounts.");
+                }
+
+                try
+                {
+                    var (liveBalance, plaidId) = await syncService.FetchLiveBalanceAsync(dto.PlaidAccessToken);
+
+                    newAccount.Balance = liveBalance;
+                    newAccount.PlaidAccessToken = dto.PlaidAccessToken;
+                    newAccount.PlaidAccountId = plaidId;
+                }
+                catch (Exception ex)
+                {
+                    // Log the error and return a user-friendly message
+                    Console.Error.WriteLine($"Error creating Plaid link token: {ex.Message}");
+                    return StatusCode(500, "An error occurred while setting up bank synchronization. Please try again later.");
+                }
+            }
+            else
+            {
+                newAccount.Balance = dto.Balance;
+            }
+
             using var context = await _context.CreateDbContextAsync();
             context.Account.Add(newAccount);
             await context.SaveChangesAsync();
             
-            return CreatedAtAction(nameof(GetById), new { id = newAccount.Id }, newAccount);
+            return CreatedAtAction(nameof(GetById), new { id = newAccount.Id }, MapToDto(newAccount));
         }
 
         [HttpPut("{id}")]
