@@ -12,16 +12,18 @@ public class Transaction
     [Key]
     public int Id { get; set; }
     [Required]
-    public double Amount { get; set; }
+    [Column(TypeName = "decimal(18,2)")]
+    public decimal Amount { get; set; }
     [Required]
     public DateTime Date { get; set; }
+    [MaxLength(1000)]
     public string Description { get; set; } = string.Empty;
 
     public TransactionStatus Status { get; set; } = TransactionStatus.Pending;
 
     [Required]
     public int AccountId { get; set; }
-    public Account? Account { get; set; } = null!;
+    public Account Account { get; set; } = null!;
     
     [Required]
     public int CategoryId { get; set; }

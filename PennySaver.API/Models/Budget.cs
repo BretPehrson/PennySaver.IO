@@ -5,7 +5,8 @@ public class Budget
     [Key]
     public int Id { get; set; }
     [Required]
-    public double TargetAmount { get; set; }
+    [Column(TypeName = "decimal(18,2)")]
+    public decimal TargetAmount { get; set; }
     public int Month { get; set; }
     public int Year { get; set; }
 
