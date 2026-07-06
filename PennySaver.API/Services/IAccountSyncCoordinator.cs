@@ -34,8 +34,7 @@ public class AccountSyncCoordinator(
                 }
 
                 // 🛰️ Pull live numbers from interface contract
-                var (liveBalance, _) = await _bankSyncService.FetchLiveBalanceAsync(account.PlaidAccessToken);
-                
+                var (liveBalance, _) = await _bankSyncService.FetchLiveBalanceAsync(account.PlaidAccessToken, account.PlaidAccountId!);
                 account.Balance = liveBalance;
                 account.SyncStatus = AccountSyncStatus.Healthy;
             }

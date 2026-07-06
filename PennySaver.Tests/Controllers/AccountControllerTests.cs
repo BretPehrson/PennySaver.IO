@@ -629,4 +629,61 @@ public class AccountControllerTests
         Assert.NotNull(accountInDb);
         Assert.Equal("sensitive_token_value", accountInDb.PlaidAccessToken); // Token should be stored internally
     }
+
+    private class DevEnv : Microsoft.AspNetCore.Hosting.IWebHostEnvironment
+    {
+        public string EnvironmentName { get; set; } = "Development";
+        public string ApplicationName { get; set; } = string.Empty;
+        public string WebRootPath { get; set; } = string.Empty;
+        public Microsoft.Extensions.FileProviders.IFileProvider? WebRootFileProvider { get; set; }
+        public string ContentRootPath { get; set; } = string.Empty;
+        public Microsoft.Extensions.FileProviders.IFileProvider? ContentRootFileProvider { get; set; }
+
+        public bool IsDevelopment() => EnvironmentName == "Development";
+    }
+
+    [Fact]
+    public async Task Create_Dev_GeneratesUniqueMockTokens()
+    {
+        var controller = CreateAccountController(_context, 111);
+        var devEnv = new DevEnv();
+
+        var dto1 = new AccountCreateDto
+        {
+            AccountName = "Dev Account 1",
+            Institution = "Test Bank",
+            Type = Account.AccountType.Checking,
+            Balance = 0m,
+            IsAutomated = true,
+            PlaidAccessToken = null
+        };
+
+        var dto2 = new AccountCreateDto
+        {
+            AccountName = "Dev Account 2",
+            Institution = "Test Bank",
+            Type = Account.AccountType.Checking,
+            Balance = 0m,
+            IsAutomated = true,
+            PlaidAccessToken = null
+        };
+
+        var res1 = await controller.Create(dto1, _syncService, devEnv);
+        var created1 = Assert.IsType<CreatedAtActionResult>(res1);
+        var acc1 = Assert.IsType<AccountResponseDto>(created1.Value);
+
+        var res2 = await controller.Create(dto2, _syncService, devEnv);
+        var created2 = Assert.IsType<CreatedAtActionResult>(res2);
+        var acc2 = Assert.IsType<AccountResponseDto>(created2.Value);
+
+        using var verifyContext = await _context.CreateDbContextAsync();
+        var a1 = await verifyContext.Account.FirstOrDefaultAsync(a => a.AccountName == "Dev Account 1" && a.UserId == 111);
+        var a2 = await verifyContext.Account.FirstOrDefaultAsync(a => a.AccountName == "Dev Account 2" && a.UserId == 111);
+
+        Assert.NotNull(a1);
+        Assert.NotNull(a2);
+        Assert.NotNull(a1.PlaidAccessToken);
+        Assert.NotNull(a2.PlaidAccessToken);
+        Assert.NotEqual(a1.PlaidAccessToken, a2.PlaidAccessToken);
+    }
 }

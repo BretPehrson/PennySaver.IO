@@ -44,7 +44,11 @@ public class Account
 
     // Plaid properties
     public bool IsAutomated { get; set; } = false;
+    [MaxLength(200)]
     public string? PlaidAccessToken { get; set; }
+    [MaxLength(200)]
+    public string? PlaidItemId { get; set; }
+    [MaxLength(200)]
     public string? PlaidAccountId { get; set; }
     public AccountSyncStatus SyncStatus { get; set; } = AccountSyncStatus.Healthy;
 
@@ -79,10 +83,13 @@ public class AccountCreateDto
 
     public bool IsAutomated { get; set; } = false;
     public string? PlaidAccessToken { get; set; }
+    public string? PlaidAccountId { get; set; }
 }
 
 public class AccountResponseDto
 {
+    public int Id { get; set; }
+
     [Required]
     [MaxLength(100)]
     public string AccountName { get; set; } = string.Empty;

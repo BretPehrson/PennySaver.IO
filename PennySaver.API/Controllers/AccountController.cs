@@ -14,6 +14,7 @@ namespace PennySaver.API.Controllers
 
         private static AccountResponseDto MapToDto(Account account) => new()
         {
+            Id = account.Id,
             AccountName = account.AccountName,
             Institution = account.Institution,
             Type = account.Type,
@@ -59,7 +60,7 @@ namespace PennySaver.API.Controllers
         }
 
         [HttpPost]
-        public async Task<IActionResult> Create([FromBody] AccountCreateDto dto, [FromServices] IBankSyncService syncService)
+        public async Task<IActionResult> Create([FromBody] AccountCreateDto dto, [FromServices] IBankSyncService syncService, [FromServices] IWebHostEnvironment? env = null, [FromServices] IConfiguration? config = null)
         {
             if (dto == null) return BadRequest("Account data is required.");
             if (dto.AccountName == null || dto.AccountName.Trim() == "") return BadRequest("The AccountName field is required.");
@@ -70,27 +71,35 @@ namespace PennySaver.API.Controllers
             int currentUserId = GetCurrentUserId();
 
             //Overwrite any provided UserId with the logged-in user's ID to enforce ownership
-            var newAccount = new Account
+            var newAccount = new PennySaver.API.Models.Account
             {
                 UserId = currentUserId,
                 AccountName = dto.AccountName,
                 Institution = dto.Institution!,
                 Type = dto.Type,
                 IsAutomated = dto.IsAutomated,
-                Balance = dto.Balance,
-                SyncStatus = AccountSyncStatus.Healthy
+                Balance = dto.Balance
             };
 
             if (dto.IsAutomated)
             {
+                // In development mode, allow the server to generate a unique mock token
                 if (string.IsNullOrWhiteSpace(dto.PlaidAccessToken))
                 {
-                    return BadRequest("Plaid access token is required for automated accounts.");
+                    var allowServerMock = config?.GetValue<bool>("Dev:GenerateMockPlaidToken") ?? (env != null && env.IsDevelopment());
+                    if (allowServerMock)
+                    {
+                        dto.PlaidAccessToken = $"mock_access_token_{Guid.NewGuid():N}"; // ensure unique per request
+                    }
+                    else
+                    {
+                        return BadRequest("Plaid access token is required for automated accounts.");
+                    }
                 }
 
                 try
                 {
-                    var (liveBalance, plaidId) = await syncService.FetchLiveBalanceAsync(dto.PlaidAccessToken);
+                    var (liveBalance, plaidId) = await syncService.FetchLiveBalanceAsync(dto.PlaidAccessToken, dto.PlaidAccountId!);
 
                     newAccount.Balance = liveBalance;
                     newAccount.PlaidAccessToken = dto.PlaidAccessToken;

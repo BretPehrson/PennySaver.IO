@@ -14,3 +14,4 @@ global using System.ComponentModel.DataAnnotations.Schema;
 global using Microsoft.AspNetCore.Authentication.JwtBearer;
 global using PennySaver.API.Services;
 global using static PennySaver.API.Models.Account;
+global using System.Text.Json;

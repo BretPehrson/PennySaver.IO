@@ -1,3 +1,5 @@
+using Going.Plaid;
+
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddOpenApi();
@@ -18,7 +20,25 @@ builder.Services.AddCors(options =>
 builder.Services.Configure<JwtOption>(
     builder.Configuration.GetSection("JwtSettings")
 );
-builder.Services.AddScoped<IBankSyncService, MockBankSyncService>();
+builder.Services.AddOptions<PlaidSettings>()
+    .Bind(builder.Configuration.GetSection(PlaidSettings.SectionName))
+    .Validate(options => !options.Enabled || 
+        (!string.IsNullOrEmpty(options.ClientId) && 
+         !string.IsNullOrEmpty(options.Secret)), 
+        "Plaid:ClientId and Plaid:Secret are required when Plaid integration is enabled.")
+    .ValidateOnStart();
+
+var plaidEnabled = builder.Configuration.GetValue<bool>("Plaid:Enabled");
+
+if (plaidEnabled)
+{
+    builder.Services.AddPlaid(builder.Configuration);
+    builder.Services.AddSingleton<IBankSyncService, BankSyncService>();
+}
+else
+{
+    builder.Services.AddSingleton<IBankSyncService, MockBankSyncService>();
+}
 builder.Services.AddScoped<IAccountSyncCoordinator, AccountSyncCoordinator>();
 
 var jwtOptions = builder.Configuration.GetSection("JwtSettings").Get<JwtOption>() ?? throw new InvalidOperationException("JWT Settings are missing.");

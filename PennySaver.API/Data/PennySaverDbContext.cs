@@ -4,6 +4,7 @@ public class PennySaverDbContext(DbContextOptions<PennySaverDbContext> options)
     : DbContext(options)
 {
     public DbSet<User> User { get; set; }
+    public DbSet<UserInfo> UserInfo { get; set; }
     public DbSet<RefreshToken> RefreshToken { get; set; }
     public DbSet<Account> Account { get; set; }
     public DbSet<Budget> Budget { get; set; }
