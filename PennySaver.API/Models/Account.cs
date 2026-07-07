@@ -51,6 +51,7 @@ public class Account
     [MaxLength(200)]
     public string? PlaidAccountId { get; set; }
     public AccountSyncStatus SyncStatus { get; set; } = AccountSyncStatus.Healthy;
+    public DateTime LastSynced { get; set; } = DateTime.UtcNow;
 
     public AccountResponseDto ToDto()
     {

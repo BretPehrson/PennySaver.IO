@@ -17,6 +17,11 @@ public class AccountSyncCoordinator(
     {
         using var context = await _contextFactory.CreateDbContextAsync();
 
+        var sixHoursAgo = DateTime.UtcNow.AddHours(-6);
+        var needsSync = await context.Account
+            .AnyAsync(a => a.UserId == userId && a.IsAutomated && a.LastSynced < sixHoursAgo);
+        if (!needsSync) return;
+
         var automatedAccounts = await context.Account
             .Where(a => a.UserId == userId && a.IsAutomated)
             .ToListAsync();
@@ -33,19 +38,19 @@ public class AccountSyncCoordinator(
                     continue;
                 }
 
-                // 🛰️ Pull live numbers from interface contract
+                // Pull live numbers from interface contract
                 var (liveBalance, _) = await _bankSyncService.FetchLiveBalanceAsync(account.PlaidAccessToken, account.PlaidAccountId!);
                 account.Balance = liveBalance;
                 account.SyncStatus = AccountSyncStatus.Healthy;
             }
             catch (Exception ex) when (ex.Message == "ITEM_LOGIN_REQUIRED")
             {
-                // 🚨 Credentials revoked by user or bank -> Update row state flag
                 account.SyncStatus = AccountSyncStatus.RequiresAttention;
             }
-            catch (Exception)
+            catch (Exception) { }
+            finally
             {
-                // Generic connection blips/timeouts don't change SyncStatus
+                account.LastSynced = DateTime.UtcNow;
             }
         }
 

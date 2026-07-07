@@ -40,6 +40,7 @@ else
     builder.Services.AddSingleton<IBankSyncService, MockBankSyncService>();
 }
 builder.Services.AddScoped<IAccountSyncCoordinator, AccountSyncCoordinator>();
+builder.Services.AddSingleton<IPlaidClientWrapper, PlaidClientWrapper>();
 
 var jwtOptions = builder.Configuration.GetSection("JwtSettings").Get<JwtOption>() ?? throw new InvalidOperationException("JWT Settings are missing.");
 

@@ -36,7 +36,7 @@ public class PlaidController(IDbContextFactory<PennySaverDbContext> contextFacto
                 {
                     ClientUserId = userId.ToString()
                 },
-                Products = new[] { Products.Balance }
+                Products = new[] { Products.Transactions }
             };
 
             var response = await _plaidClient.LinkTokenCreateAsync(request);
