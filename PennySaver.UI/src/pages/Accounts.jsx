@@ -6,7 +6,7 @@ export default function Accounts() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  // 🎛️ Modal & Form State Management
+  // Modal & Form State Management
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingId, setEditingId] = useState(null); // Track which account is being edited (null if creating new)
   const [formData, setFormData] = useState({ accountName: "", institution: "", type: 0, balance: "" });
@@ -24,7 +24,7 @@ export default function Accounts() {
     "Loan"
   ];
 
-  // 🔄 Fetch list data on mount
+  // Fetch list data on mount
   const fetchAccountData = async () => {
     try {
       setLoading(true);
@@ -95,7 +95,7 @@ export default function Accounts() {
       // Reset state on success
       setIsModalOpen(false);
       setFormData({ accountName: "", institution: "", type: 0, balance: "" });
-      fetchAccountData(); // 🔄 Re-trigger GET to display your new card instantly!
+      fetchAccountData(); // Re-trigger GET to display your new card instantly!
     } catch (err) {
       console.error("Full Axios Error Object:", err);
       console.error("Server Response Data:", err.response?.data);
@@ -125,7 +125,7 @@ export default function Accounts() {
 
 return (
     <div className="space-y-8">
-      {/* 1. Page Header View */}
+      {/* Page Header View */}
       <div className="sm:flex sm:items-center sm:justify-between">
         <div>
           <h1 className="text-3xl font-bold text-gray-900 tracking-tight">Bank Accounts</h1>
@@ -141,27 +141,27 @@ return (
         </div>
       </div>
 
-      {/* 2. Quick-Stats Aggregation Ribbons */}
+      {/* Quick-Stats Aggregation Ribbons */}
       {accounts.length > 0 && (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
           <div className="bg-white p-5 rounded-xl border border-gray-100 shadow-xs">
             <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Liquid Assets</p>
-            <p className="mt-2 text-2xl font-bold text-emerald-600">{formatCurrency(totalAssets)}</p>
+            <p className="mt-2 text-xl sm:text-2xl font-bold text-emerald-600 break-words">{formatCurrency(totalAssets)}</p>
           </div>
           <div className="bg-white p-5 rounded-xl border border-gray-100 shadow-xs">
             <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Liabilities / Debt</p>
-            <p className="mt-2 text-2xl font-bold text-red-600">{formatCurrency(totalLiabilities)}</p>
+            <p className="mt-2 text-xl sm:text-2xl font-bold text-red-600 break-words">{formatCurrency(totalLiabilities)}</p>
           </div>
           <div className="bg-white p-5 rounded-xl border border-gray-100 shadow-xs bg-slate-50/50">
             <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Net Ledger Balance</p>
-            <p className={`mt-2 text-2xl font-bold ${netWorth >= 0 ? "text-slate-900" : "text-red-700"}`}>
+            <p className={`mt-2 text-xl sm:text-2xl font-bold ${netWorth >= 0 ? "text-slate-900" : "text-red-700"} break-words`}>
               {formatCurrency(netWorth)}
             </p>
           </div>
         </div>
       )}
 
-      {/* 3. Main Accounts Grid Worksheets */}
+      {/* Main Accounts Grid Worksheets */}
       {accounts.length === 0 ? (
         <div className="text-center p-12 bg-white rounded-xl border border-dashed border-gray-300">
           <h3 className="text-sm font-medium text-gray-900">No accounts connected</h3>
@@ -182,15 +182,25 @@ return (
                   
                   {/* Action Cluster Buttons */}
                   <div className="flex items-center space-x-2">
-                    {deletingId === account.id ? (
+                    {account.isAutomated ? (
+                      /* Locked Indicator for Plaid / Synced accounts */
+                      <span 
+                        className="text-[10px] font-medium bg-gray-100 text-gray-500 px-2 py-0.5 rounded-md cursor-help flex items-center gap-1"
+                        title="This account automatically syncs data. Core values cannot be edited or deleted manually."
+                      >
+                        🔒 Synced
+                      </span>
+                    ) : deletingId === account.id ? (
+                      /* Confirm Delete Mode (Manual Accounts Only) */
                       <div className="flex items-center space-x-2 animate-in fade-in slide-in-from-right-2 duration-100">
                         <button onClick={() => handleDelete(account.id)} className="text-xs font-bold text-red-600 hover:underline cursor-pointer">Confirm</button>
                         <span className="text-gray-300 text-xs">|</span>
                         <button onClick={() => setDeletingId(null)} className="text-xs text-gray-400 hover:text-gray-600 cursor-pointer">Cancel</button>
                       </div>
                     ) : (
-                      <div className="opacity-0 group-hover:opacity-100 transition-opacity flex items-center space-x-1">
-                        {/* ✏️ Edit Action Trigger */}
+                      /* Normal Edit/Delete Mode (Manual Accounts Only) */
+                      <div className="flex items-center space-x-1 shrink-0">
+                        {/* Edit Action Trigger */}
                         <button 
                           onClick={() => handleOpenEdit(account)}
                           className="text-gray-400 hover:text-blue-500 p-1 text-xs cursor-pointer"
@@ -198,7 +208,7 @@ return (
                         >
                           ✏️
                         </button>
-                        {/* 🗑️ Delete Action Trigger */}
+                        {/* Delete Action Trigger */}
                         <button 
                           onClick={() => setDeletingId(account.id)}
                           className="text-gray-400 hover:text-red-500 p-1 text-xs cursor-pointer"
@@ -215,9 +225,11 @@ return (
                 <p className="text-xs text-gray-400 mt-0.5">{account.institution || "Local Portfolio Ledger"}</p>
               </div>
 
-              <div className="mt-6 pt-4 border-t border-gray-50 flex items-baseline justify-between">
-                <span className="text-xs text-gray-400 font-medium">Available Balance</span>
-                <span className={`text-xl font-bold ${account.type === 2 || account.type === 4 ? "text-red-600" : "text-gray-900"}`}>
+              <div className="mt-6 pt-4 border-t border-gray-50 flex flex-col gap-y-1">
+                <span className="text-xs text-gray-400 font-semibold uppercase tracking-wider">
+                  Available Balance
+                </span>
+                <span className={`text-2xl font-bold leading-tight ${account.type === 2 || account.type === 4 ? "text-red-600" : "text-gray-900"} break-words`}>
                   {formatCurrency(account.balance)}
                 </span>
               </div>
@@ -227,12 +239,12 @@ return (
         </div>
       )}
 
-      {/* 4. DYNAMIC CREATE/EDIT ENTRY MODAL OVERLAY */}
+      {/* DYNAMIC CREATE/EDIT ENTRY MODAL OVERLAY */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs p-4">
           <div className="bg-white rounded-xl max-w-md w-full shadow-xl border border-gray-100 overflow-hidden animate-in fade-in zoom-in-95 duration-150">
             <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
-              {/* 💡 Modal Title changes dynamically based on active mode context */}
+              {/* Modal Title changes dynamically based on active mode context */}
               <h2 className="text-lg font-bold text-gray-900">
                 {editingId ? "Modify Account Details" : "Link New Bank Account"}
               </h2>
@@ -289,7 +301,7 @@ return (
               <div className="pt-4 border-t border-gray-100 flex justify-end space-x-3">
                 <button type="button" onClick={() => setIsModalOpen(false)} className="px-4 py-2 border border-gray-200 text-sm font-medium rounded-lg text-gray-600 hover:bg-gray-50 cursor-pointer">Cancel</button>
                 <button type="submit" className="px-4 py-2 text-sm font-medium text-white bg-slate-900 rounded-lg hover:bg-slate-800 shadow-sm cursor-pointer">
-                  {/* 💡 Button text updates automatically */}
+                  {/* Button text updates automatically */}
                   {editingId ? "Save Changes" : "Save Account"}
                 </button>
               </div>

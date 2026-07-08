@@ -9,12 +9,18 @@ import Budgets from "./pages/Budgets";
 import Accounts from "./pages/Accounts";
 
 function App() {
+    const handleLogout = () => {
+        localStorage.removeItem("token");
+        sessionStorage.clear();
+        window.location.href = "/login";
+    };
+
     return (
         <Router>
             <Routes>
                 <Route path="/login" element={<Login />} />
                 <Route element={<ProtectedRoute />}>
-                    <Route element={<AppLayout />}>
+                    <Route element={<AppLayout logout={handleLogout} />}>
                         <Route path="/dashboard" element={<Dashboard />} />
                         <Route path="/budgets" element={<Budgets />} />
                         <Route path="/accounts" element={<Accounts />} />

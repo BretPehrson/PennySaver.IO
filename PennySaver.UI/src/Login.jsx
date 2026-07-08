@@ -1,4 +1,4 @@
-import {useState} from "react";
+import { useState } from "react";
 import axios from "axios";
 import api from "./api";
 import { useNavigate } from "react-router-dom";
@@ -12,7 +12,6 @@ function Login() {
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-        setLoading(false);
         setError("");
 
         try {
