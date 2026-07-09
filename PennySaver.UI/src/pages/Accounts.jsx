@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { getAccounts, createAccount, updateAccount, deleteAccount } from "../api";
+import { getAccounts, createAccount, updateAccount, deleteAccount } from "../api/accounts";
 
 export default function Accounts() {
   const [accounts, setAccounts] = useState([]);
