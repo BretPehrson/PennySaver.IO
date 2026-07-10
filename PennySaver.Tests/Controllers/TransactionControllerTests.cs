@@ -17,17 +17,15 @@ public class TransactionControllerTests
     [Fact]
     public async Task Create_ForcesOwnershipToLoggedInUser()
     {
-        var context = TestDbContextFactory.Create(Guid.NewGuid().ToString());
-
         // Seed a category and account that belongs to our logged-in user (111)
-        using (var seedContext = context.CreateDbContext())
+        using (var seedContext = _context.CreateDbContext())
         {
             seedContext.Category.Add(new Category { Id = 1, UserId = 111, CategoryName = "Food" });
             seedContext.Account.Add(new Account { Id = 1, UserId = 111, AccountName = "Checking" });
             await seedContext.SaveChangesAsync();
         }
 
-        var controller = CreateController(context, 111);
+        var controller = CreateController(_context, 111);
 
         var incomingPayLoad = new Transaction
         {
@@ -51,8 +49,7 @@ public class TransactionControllerTests
     [Fact]
     public async Task GetAll_ReturnsOkResult_WithTransactions()
     {
-        var context = TestDbContextFactory.Create(Guid.NewGuid().ToString());
-        using (var seedContext = context.CreateDbContext())
+        using (var seedContext = _context.CreateDbContext())
         {
             seedContext.Account.Add(new Account { Id = 1, UserId = 111, AccountName = "Checking" });
             seedContext.Category.Add(new Category { Id = 1, UserId = 111, CategoryName = "Food" });
@@ -63,7 +60,7 @@ public class TransactionControllerTests
             await seedContext.SaveChangesAsync();
         }
 
-        var controller = CreateController(context, 111);
+        var controller = CreateController(_context, 111);
 
         var result = await controller.GetAll(null);
         var okResult = Assert.IsType<OkObjectResult>(result);
@@ -74,8 +71,7 @@ public class TransactionControllerTests
     [Fact]
     public async Task GetAll_FiltersByStatusCompleted()
     {
-        var context = TestDbContextFactory.Create(Guid.NewGuid().ToString());
-        using (var seedContext = context.CreateDbContext())
+        using (var seedContext = _context.CreateDbContext())
         {
             seedContext.Account.Add(new Account { Id = 1, UserId = 111, AccountName = "Checking" });
             seedContext.Category.Add(new Category { Id = 1, UserId = 111, CategoryName = "Food" });
@@ -87,7 +83,7 @@ public class TransactionControllerTests
             await seedContext.SaveChangesAsync();
         }
 
-        var controller = CreateController(context, 111);
+        var controller = CreateController(_context, 111);
 
         var result = await controller.GetAll(TransactionStatus.Completed);
         var okResult = Assert.IsType<OkObjectResult>(result);
@@ -100,8 +96,7 @@ public class TransactionControllerTests
     [Fact]
     public async Task GetAll_FiltersByStatusPending()
     {
-        var context = TestDbContextFactory.Create(Guid.NewGuid().ToString());
-        using (var seedContext = context.CreateDbContext())
+        using (var seedContext = _context.CreateDbContext())
         {
             seedContext.Account.Add(new Account { Id = 1, UserId = 111, AccountName = "Checking" });
             seedContext.Category.Add(new Category { Id = 1, UserId = 111, CategoryName = "Food" });
@@ -113,7 +108,7 @@ public class TransactionControllerTests
             await seedContext.SaveChangesAsync();
         }
 
-        var controller = CreateController(context, 111);
+        var controller = CreateController(_context, 111);
 
         var result = await controller.GetAll(TransactionStatus.Pending);
         var okResult = Assert.IsType<OkObjectResult>(result);
@@ -126,8 +121,7 @@ public class TransactionControllerTests
     [Fact]
     public async Task GetAll_FiltersByStatusNotVoided()
     {
-        var context = TestDbContextFactory.Create(Guid.NewGuid().ToString());
-        using (var seedContext = context.CreateDbContext())
+        using (var seedContext = _context.CreateDbContext())
         {
             seedContext.Account.Add(new Account { Id = 1, UserId = 111, AccountName = "Checking" });
             seedContext.Category.Add(new Category { Id = 1, UserId = 111, CategoryName = "Food" });
@@ -139,7 +133,7 @@ public class TransactionControllerTests
             await seedContext.SaveChangesAsync();
         }
 
-        var controller = CreateController(context, 111);
+        var controller = CreateController(_context, 111);
 
         var result = await controller.GetAll(null);
         var okResult = Assert.IsType<OkObjectResult>(result);
@@ -151,8 +145,7 @@ public class TransactionControllerTests
     [Fact]
     public async Task GetById_ReturnsOkResult_WithTransaction()
     {
-        var context = TestDbContextFactory.Create(Guid.NewGuid().ToString());
-        using (var seedContext = context.CreateDbContext())
+        using (var seedContext = _context.CreateDbContext())
         {
             seedContext.Account.Add(new Account { Id = 1, UserId = 111, AccountName = "Checking" });
             seedContext.Category.Add(new Category { Id = 1, UserId = 111, CategoryName = "Food" });
@@ -160,7 +153,7 @@ public class TransactionControllerTests
             await seedContext.SaveChangesAsync();
         }
 
-        var controller = CreateController(context, 111);
+        var controller = CreateController(_context, 111);
 
         var result = await controller.GetById(1);
         var okResult = Assert.IsType<OkObjectResult>(result);
@@ -174,8 +167,7 @@ public class TransactionControllerTests
     [Fact]
     public async Task GetById_ReturnsNotFound_ForNonExistentTransaction()
     {
-        var context = TestDbContextFactory.Create(Guid.NewGuid().ToString());
-        var controller = CreateController(context, 111);
+        var controller = CreateController(_context, 111);
 
         var result = await controller.GetById(999);
         Assert.IsType<NotFoundResult>(result);
@@ -184,8 +176,7 @@ public class TransactionControllerTests
     [Fact]
     public async Task GetById_ReturnsNotFound_ForTransactionBelongingToAnotherUser()
     {
-        var context = TestDbContextFactory.Create(Guid.NewGuid().ToString());
-        using (var seedContext = context.CreateDbContext())
+        using (var seedContext = _context.CreateDbContext())
         {
             seedContext.Account.Add(new Account { Id = 1, UserId = 111, AccountName = "Checking" });
             seedContext.Category.Add(new Category { Id = 1, UserId = 111, CategoryName = "Food" });
@@ -193,7 +184,7 @@ public class TransactionControllerTests
             await seedContext.SaveChangesAsync();
         }
 
-        var controller = CreateController(context, 999); // Different user
+        var controller = CreateController(_context, 999); // Different user
 
         var result = await controller.GetById(1);
         Assert.IsType<NotFoundResult>(result);
@@ -203,15 +194,14 @@ public class TransactionControllerTests
     [Fact]
     public async Task Create_Fails_WhenAccountOrCategoryBelongsToAnotherUser()
     {
-        var context = TestDbContextFactory.Create(Guid.NewGuid().ToString());
-        using (var seedContext = context.CreateDbContext())
+        using (var seedContext = _context.CreateDbContext())
         {
             seedContext.Category.Add(new Category { Id = 10, UserId = 111, CategoryName = "Groceries" });
             seedContext.Account.Add(new Account { Id = 20, UserId = 999, AccountName = "Malicious Checking" });
             await seedContext.SaveChangesAsync();
         }
 
-        var controller = CreateController(context, 111);
+        var controller = CreateController(_context, 111);
 
 
         var incomingPayLoad = new Transaction
@@ -233,8 +223,7 @@ public class TransactionControllerTests
     [Fact]
     public async Task Update_Fails_WhenTransactionIsVoided()
     {
-        var context = TestDbContextFactory.Create(Guid.NewGuid().ToString());
-        using (var seedContext = context.CreateDbContext())
+        using (var seedContext = _context.CreateDbContext())
         {
             seedContext.Account.Add(new Account { Id = 1, UserId = 111, AccountName = "Checking" });
             seedContext.Category.Add(new Category { Id = 1, UserId = 111, CategoryName = "Food" });
@@ -242,7 +231,7 @@ public class TransactionControllerTests
             await seedContext.SaveChangesAsync();
         }
 
-        var controller = CreateController(context, 111);
+        var controller = CreateController(_context, 111);
 
         var updatePayload = new Transaction
         {
@@ -263,8 +252,7 @@ public class TransactionControllerTests
     [Fact]
     public async Task Update_Fails_WhenAccountIsNull()
     {
-        var context = TestDbContextFactory.Create(Guid.NewGuid().ToString());
-        using (var seedContext = context.CreateDbContext())
+        using (var seedContext = _context.CreateDbContext())
         {
             seedContext.Account.Add(new Account { Id = 1, UserId = 111, AccountName = "Checking" });
             seedContext.Category.Add(new Category { Id = 1, UserId = 111, CategoryName = "Food" });
@@ -272,7 +260,7 @@ public class TransactionControllerTests
             await seedContext.SaveChangesAsync();
         }
 
-        var controller = CreateController(context, 111);
+        var controller = CreateController(_context, 111);
 
         var updatePayload = new Transaction
         {
@@ -281,8 +269,7 @@ public class TransactionControllerTests
             CategoryId = 1,
             Amount = 20,
             Description = "Updated Description",
-            Status = TransactionStatus.Completed,
-            Account = null // Account is null
+            Status = TransactionStatus.Completed
         };
 
         var result = await controller.Update(1, updatePayload);
@@ -293,8 +280,7 @@ public class TransactionControllerTests
     [Fact]
     public async Task Update_Fails_WhenTransactionDoesNotExist()
     {
-        var context = TestDbContextFactory.Create(Guid.NewGuid().ToString());
-        var controller = CreateController(context, 111);
+        var controller = CreateController(_context, 111);
 
         var updatePayload = new Transaction
         {
@@ -307,14 +293,13 @@ public class TransactionControllerTests
         };
 
         var result = await controller.Update(999, updatePayload);
-        Assert.IsType<BadRequestObjectResult>(result);
+        Assert.IsType<NotFoundResult>(result);
     }
 
     [Fact]
     public async Task Update_Fails_WhenTransactionBelongsToAnotherUser()
     {
-        var context = TestDbContextFactory.Create(Guid.NewGuid().ToString());
-        using (var seedContext = context.CreateDbContext())
+        using (var seedContext = _context.CreateDbContext())
         {
             seedContext.Account.Add(new Account { Id = 1, UserId = 111, AccountName = "Checking" });
             seedContext.Category.Add(new Category { Id = 1, UserId = 111, CategoryName = "Food" });
@@ -322,7 +307,7 @@ public class TransactionControllerTests
             await seedContext.SaveChangesAsync();
         }
 
-        var controller = CreateController(context, 999);
+        var controller = CreateController(_context, 999);
 
         var updatePayload = new Transaction
         {
@@ -335,15 +320,13 @@ public class TransactionControllerTests
         };
 
         var result = await controller.Update(1, updatePayload);
-        var badRequestResult = Assert.IsType<BadRequestObjectResult>(result);
-        Assert.Equal("Cannot update a transaction that belongs to another user.", badRequestResult.Value);
+        var badRequestResult = Assert.IsType<NotFoundResult>(result);
     }
 
     [Fact]
     public async Task Update_Succeeds_ForValidUpdate()
     {
-        var context = TestDbContextFactory.Create(Guid.NewGuid().ToString());
-        using (var seedContext = context.CreateDbContext())
+        using (var seedContext = _context.CreateDbContext())
         {
             seedContext.Account.Add(new Account { Id = 1, UserId = 111, AccountName = "Checking" });
             seedContext.Category.Add(new Category { Id = 1, UserId = 111, CategoryName = "Food" });
@@ -351,7 +334,7 @@ public class TransactionControllerTests
             await seedContext.SaveChangesAsync();
         }
 
-        var controller = CreateController(context, 111);
+        var controller = CreateController(_context, 111);
 
         var updatePayload = new Transaction
         {
@@ -365,13 +348,18 @@ public class TransactionControllerTests
 
         var result = await controller.Update(1, updatePayload);
         Assert.IsType<NoContentResult>(result);
+
+        using var verifyContext = _context.CreateDbContext();
+        var updatedTx = await verifyContext.Transaction.FindAsync(1);
+        Assert.NotNull(updatedTx);
+        Assert.Equal(20, updatedTx!.Amount);
+        Assert.Equal("Updated Description", updatedTx.Description);
     }
 
     [Fact]
     public async Task Archive_Succeeds_ForValidTransaction()
     {
-        var context = TestDbContextFactory.Create(Guid.NewGuid().ToString());
-        using (var seedContext = context.CreateDbContext())
+        using (var seedContext = _context.CreateDbContext())
         {
             seedContext.Account.Add(new Account { Id = 1, UserId = 111, AccountName = "Checking" });
             seedContext.Category.Add(new Category { Id = 1, UserId = 111, CategoryName = "Food" });
@@ -379,7 +367,7 @@ public class TransactionControllerTests
             await seedContext.SaveChangesAsync();
         }
 
-        var controller = CreateController(context, 111);
+        var controller = CreateController(_context, 111);
 
         var result = await controller.Archive(1);
         Assert.IsType<NoContentResult>(result);
@@ -388,8 +376,7 @@ public class TransactionControllerTests
     [Fact]
     public async Task Archive_Fails_ForNonExistentTransaction()
     {
-        var context = TestDbContextFactory.Create(Guid.NewGuid().ToString());
-        var controller = CreateController(context, 111);
+        var controller = CreateController(_context, 111);
 
         var result = await controller.Archive(999);
         Assert.IsType<NotFoundResult>(result);
@@ -398,8 +385,7 @@ public class TransactionControllerTests
     [Fact]
     public async Task Archive_Fails_ForTransactionBelongingToAnotherUser()
     {
-        var context = TestDbContextFactory.Create(Guid.NewGuid().ToString());
-        using (var seedContext = context.CreateDbContext())
+        using (var seedContext = _context.CreateDbContext())
         {
             seedContext.Account.Add(new Account { Id = 1, UserId = 111, AccountName = "Checking" });
             seedContext.Category.Add(new Category { Id = 1, UserId = 111, CategoryName = "Food" });
@@ -407,7 +393,7 @@ public class TransactionControllerTests
             await seedContext.SaveChangesAsync();
         }
 
-        var controller = CreateController(context, 999); // Different user
+        var controller = CreateController(_context, 999); // Different user
 
         var result = await controller.Archive(1);
         Assert.IsType<NotFoundResult>(result);

@@ -2,15 +2,20 @@ namespace PennySaver.Tests.Controllers;
 
 public class AccountControllerTests
 {
-    private readonly IDbContextFactory<PennySaverDbContext> _context = TestDbContextFactory.Create(Guid.NewGuid().ToString());
+    private readonly IDbContextFactory<PennySaverDbContext> _context;
     private readonly IBankSyncService _syncService = new MockBankSyncService();
 
-    private static AccountController CreateAccountController(IDbContextFactory<PennySaverDbContext> sharedContext, int? userId = null) => new(sharedContext)
+    public AccountControllerTests()
+    {
+        _context = TestDbContextFactory.Create(Guid.NewGuid().ToString());
+    }
+
+    private static AccountController CreateAccountController(IDbContextFactory<PennySaverDbContext> context, int? userId = null) => new(context)
     {
         ControllerContext = TestAuthHelper.GetControllerContext(userId)
     };
 
-    private static TransactionController CreateTransactionController(IDbContextFactory<PennySaverDbContext> sharedContext, int? userId = null) => new(sharedContext)
+    private static TransactionController CreateTransactionController(IDbContextFactory<PennySaverDbContext> context, int? userId = null) => new(context)
     {
         ControllerContext = TestAuthHelper.GetControllerContext(userId)
     };
@@ -175,14 +180,13 @@ public class AccountControllerTests
     [Fact]
     public async Task Create_Fails_WhenAccountDoesNotExist()
     {
-        var context = TestDbContextFactory.Create(Guid.NewGuid().ToString());
-        using (var seedContext = context.CreateDbContext())
+        using (var seedContext = _context.CreateDbContext())
         {
             seedContext.Category.Add(new Category { Id = 1, UserId = 111, CategoryName = "Groceries" });
             await seedContext.SaveChangesAsync();
         }
 
-        var controller = CreateTransactionController(context, 111);
+        var controller = CreateTransactionController(_context, 111);
 
         var incomingPayLoad = new Transaction
         {
@@ -475,14 +479,13 @@ public class AccountControllerTests
     [Fact]
     public async Task Delete_Fails_WhenAccountBelongsToAnotherUser()
     {
-        var context = TestDbContextFactory.Create(Guid.NewGuid().ToString());
-        using (var seedContext = context.CreateDbContext())
+        using (var seedContext = _context.CreateDbContext())
         {
             seedContext.Account.Add(new Account { Id = 1, UserId = 999, AccountName = "Malicious Checking" });
             await seedContext.SaveChangesAsync();
         }
 
-        var controller = CreateAccountController(context, 111);
+        var controller = CreateAccountController(_context, 111);
 
         var result = await controller.Delete(1);
 

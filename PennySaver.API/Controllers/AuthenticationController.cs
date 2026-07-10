@@ -109,7 +109,7 @@ public class AuthController(IDbContextFactory<PennySaverDbContext> dbContextFact
             .Include(t => t.User)
             .FirstOrDefault(rt => rt.Token == refreshToken);
 
-        if (storedToken == null || !storedToken.IsActive)
+        if (storedToken == null || storedToken.User == null || !storedToken.IsActive)
             return Unauthorized(new { message = "Invalid or expired refresh token." });
 
         var claims = new[]
@@ -158,12 +158,11 @@ public class AuthController(IDbContextFactory<PennySaverDbContext> dbContextFact
     [HttpPost("logout")]
     public async Task<IActionResult> Logout()
     {
-        if (!Request.Cookies.TryGetValue("refreshToken", out var refreshToken))
+        if (Request.Cookies.TryGetValue("refreshToken", out var refreshToken))
         {
             using var context = _dbContextFactory.CreateDbContext();
 
             var storedToken = await context.RefreshToken
-                .Include(t => t.User)
                 .FirstOrDefaultAsync(rt => rt.Token == refreshToken);
 
             if (storedToken != null)            
@@ -173,12 +172,11 @@ public class AuthController(IDbContextFactory<PennySaverDbContext> dbContextFact
             }
         }
 
-        Response.Cookies.Append("RefreshToken", "", new CookieOptions
+        Response.Cookies.Delete("refreshToken", new CookieOptions
         {
             HttpOnly = true,
             Secure = true,
-            SameSite = SameSiteMode.Strict,
-            Expires = DateTime.UtcNow.AddDays(-1)
+            SameSite = SameSiteMode.Strict
         });
 
         return Ok(new { message = "Logged out successfully." });

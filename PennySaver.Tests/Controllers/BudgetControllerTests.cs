@@ -17,16 +17,14 @@ public class BudgetControllerTests
     [Fact]
     public async Task Create_ForcesOwnershipToLoggedInUser()
     {
-        var context = TestDbContextFactory.Create(Guid.NewGuid().ToString());
-
         // Seed a category that belongs to our logged-in user (111)
-        using (var seedContext = context.CreateDbContext())
+        using (var seedContext = _context.CreateDbContext())
         {
             seedContext.Category.Add(new Category { Id = 1, UserId = 111, CategoryName = "Food" });
             await seedContext.SaveChangesAsync();
         }
 
-        var controller = CreateController(context, 111);
+        var controller = CreateController(_context, 111);
 
         var incomingPayLoad = new Budget
         {
@@ -47,8 +45,7 @@ public class BudgetControllerTests
     [Fact]
     public async Task Verify_GetAll()
     {
-        var context = TestDbContextFactory.Create(Guid.NewGuid().ToString());
-        using (var seedContext = context.CreateDbContext())
+        using (var seedContext = _context.CreateDbContext())
         {
             seedContext.Category.AddRange(
                 new Category { Id = 1, UserId = 111, CategoryName = "Food" },
@@ -63,7 +60,7 @@ public class BudgetControllerTests
             await seedContext.SaveChangesAsync();
         }
 
-        var controller = CreateController(context, 111);
+        var controller = CreateController(_context, 111);
 
         var result = await controller.GetAll();
         var okResult = Assert.IsType<OkObjectResult>(result);
@@ -73,7 +70,7 @@ public class BudgetControllerTests
         Assert.All(budgets, b => Assert.Equal(111, b.UserId));
 
         //Get user 999's budgets
-        controller = CreateController(context, 999);
+        controller = CreateController(_context, 999);
         result = await controller.GetAll();
         okResult = Assert.IsType<OkObjectResult>(result);
         budgets = Assert.IsType<List<Budget>>(okResult.Value);
@@ -84,8 +81,7 @@ public class BudgetControllerTests
     [Fact]
     public async Task Verify_UpdateCategory()
     {
-        var context = TestDbContextFactory.Create(Guid.NewGuid().ToString());
-        using (var seedContext = context.CreateDbContext())
+        using (var seedContext = _context.CreateDbContext())
         {
             seedContext.Category.Add(new Category { Id = 1, UserId = 111, CategoryName = "Food" });
             seedContext.Category.Add(new Category { Id = 2, UserId = 111, CategoryName = "Transport" });
@@ -93,7 +89,7 @@ public class BudgetControllerTests
             await seedContext.SaveChangesAsync();
         }
 
-        var controller = CreateController(context, 111);
+        var controller = CreateController(_context, 111);
 
         var updatePayload = new Budget
         {
@@ -104,13 +100,18 @@ public class BudgetControllerTests
 
         var result = await controller.Update(1, updatePayload);
         Assert.IsType<NoContentResult>(result);
+
+        using var verifyContext = _context.CreateDbContext();
+        var updatedBudget = await verifyContext.Budget.FindAsync(1);
+        Assert.NotNull(updatedBudget);
+        Assert.Equal(75, updatedBudget.TargetAmount);
+        Assert.Equal(2, updatedBudget.CategoryId);
     }
 
     [Fact]
     public async Task Update_CategoryMustBelongToUser()
     {
-        var context = TestDbContextFactory.Create(Guid.NewGuid().ToString());
-        using (var seedContext = context.CreateDbContext())
+        using (var seedContext = _context.CreateDbContext())
         {
             seedContext.Category.Add(new Category { Id = 1, UserId = 111, CategoryName = "Food" });
             seedContext.Category.Add(new Category { Id = 2, UserId = 999, CategoryName = "Transport" });
@@ -118,7 +119,7 @@ public class BudgetControllerTests
             await seedContext.SaveChangesAsync();
         }
 
-        var controller = CreateController(context, 111);
+        var controller = CreateController(_context, 111);
 
         var updatePayload = new Budget
         {
@@ -136,15 +137,14 @@ public class BudgetControllerTests
     [Fact]
     public async Task Update_NotFoundForOwner()
     {
-        var context = TestDbContextFactory.Create(Guid.NewGuid().ToString());
-        using (var seedContext = context.CreateDbContext())
+        using (var seedContext = _context.CreateDbContext())
         {
             seedContext.Category.Add(new Category { Id = 1, UserId = 111, CategoryName = "Food" });
             seedContext.Budget.Add(new Budget { Id = 1, UserId = 111, TargetAmount = 50, CategoryId = 1, Month = 1, Year = 2030 });
             await seedContext.SaveChangesAsync();
         }
 
-        var controller = CreateController(context, 111);
+        var controller = CreateController(_context, 111);
 
         var updatePayload = new Budget
         {
@@ -161,15 +161,14 @@ public class BudgetControllerTests
     [Fact]
     public async Task Update_BadRequestForIdMismatch()
     {
-        var context = TestDbContextFactory.Create(Guid.NewGuid().ToString());
-        using (var seedContext = context.CreateDbContext())
+        using (var seedContext = _context.CreateDbContext())
         {
             seedContext.Category.Add(new Category { Id = 1, UserId = 111, CategoryName = "Food" });
             seedContext.Budget.Add(new Budget { Id = 1, UserId = 111, TargetAmount = 50, CategoryId = 1, Month = 1, Year = 2030 });
             await seedContext.SaveChangesAsync();
         }
 
-        var controller = CreateController(context, 111);
+        var controller = CreateController(_context, 111);
 
         var updatePayload = new Budget
         {
@@ -186,21 +185,20 @@ public class BudgetControllerTests
     [Fact]
     public async Task Delete_RemovesBudget()
     {
-        var context = TestDbContextFactory.Create(Guid.NewGuid().ToString());
-        using (var seedContext = context.CreateDbContext())
+        using (var seedContext = _context.CreateDbContext())
         {
             seedContext.Category.Add(new Category { Id = 1, UserId = 111, CategoryName = "Food" });
             seedContext.Budget.Add(new Budget { Id = 1, UserId = 111, TargetAmount = 50, CategoryId = 1, Month = 1, Year = 2030 });
             await seedContext.SaveChangesAsync();
         }
 
-        var controller = CreateController(context, 111);
+        var controller = CreateController(_context, 111);
 
         var result = await controller.Delete(1);
         Assert.IsType<NoContentResult>(result);
 
         // Verify it's actually deleted
-        using var verifyContext = context.CreateDbContext();
+        using var verifyContext = _context.CreateDbContext();
         var budget = await verifyContext.Budget.FindAsync(1);
         Assert.Null(budget);
     }
@@ -208,8 +206,7 @@ public class BudgetControllerTests
     [Fact]
     public async Task Delete_NotFoundForNonExistentBudget()
     {
-        var context = TestDbContextFactory.Create(Guid.NewGuid().ToString());
-        var controller = CreateController(context, 111);
+        var controller = CreateController(_context, 111);
 
         var result = await controller.Delete(999); // Non-existent budget ID
         Assert.IsType<NotFoundResult>(result);
@@ -218,15 +215,14 @@ public class BudgetControllerTests
     [Fact]
     public async Task Delete_NotFoundForOtherUsersBudget()
     {
-        var context = TestDbContextFactory.Create(Guid.NewGuid().ToString());
-        using (var seedContext = context.CreateDbContext())
+        using (var seedContext = _context.CreateDbContext())
         {
             seedContext.Category.Add(new Category { Id = 1, UserId = 999, CategoryName = "Food" });
             seedContext.Budget.Add(new Budget { Id = 1, UserId = 999, TargetAmount = 50, CategoryId = 1, Month = 1, Year = 2030 });
             await seedContext.SaveChangesAsync();
         }
 
-        var controller = CreateController(context, 111); // Logged in as a different user
+        var controller = CreateController(_context, 111); // Logged in as a different user
 
         var result = await controller.Delete(1); // Attempt to delete another user's budget
         Assert.IsType<NotFoundResult>(result);

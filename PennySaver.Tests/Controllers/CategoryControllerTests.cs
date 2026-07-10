@@ -17,8 +17,7 @@ public class CategoryControllerTests
     [Fact]
     public async Task Create_ForcesOwnershipToLoggedInUser()
     {
-        var context = TestDbContextFactory.Create(Guid.NewGuid().ToString());
-        var controller = CreateController(context, 111);
+        var controller = CreateController(_context, 111);
 
         var incomingPayLoad = new Category
         {
@@ -31,7 +30,7 @@ public class CategoryControllerTests
         Assert.IsType<CreatedAtActionResult>(result);
 
         // Verify that the category was created with the UserId of the logged-in user (111) and not the one in the payload (999)
-        using var verifyContext = context.CreateDbContext();
+        using var verifyContext = _context.CreateDbContext();
         var createdCategory = await verifyContext.Category.FirstOrDefaultAsync(c => c.Id == 1);
         Assert.NotNull(createdCategory);
         Assert.Equal(111, createdCategory.UserId); // Should be 111, not 999
@@ -40,14 +39,13 @@ public class CategoryControllerTests
     [Fact]
     public async Task Verify_Fail_WhenAddingSameCategoryTwiceForSameUser()
     {
-        var context = TestDbContextFactory.Create(Guid.NewGuid().ToString());
-        using (var seedContext = context.CreateDbContext())
+        using (var seedContext = _context.CreateDbContext())
         {
             seedContext.Category.Add(new Category { Id = 1, UserId = 111, CategoryName = "Groceries" });
             await seedContext.SaveChangesAsync();
         }
 
-        var controller = CreateController(context, 111);
+        var controller = CreateController(_context, 111);
 
         var incomingPayLoad = new Category
         {
@@ -64,14 +62,13 @@ public class CategoryControllerTests
     [Fact]
     public async Task Verify_Fail_WhenUserTriesToDeleteCategoryThatDoesNotBelongToThem()
     {
-        var context = TestDbContextFactory.Create(Guid.NewGuid().ToString());
-        using (var seedContext = context.CreateDbContext())
+        using (var seedContext = _context.CreateDbContext())
         {
             seedContext.Category.Add(new Category { Id = 1, UserId = 111, CategoryName = "Groceries" });
             await seedContext.SaveChangesAsync();
         }
 
-        var controller = CreateController(context, 999);
+        var controller = CreateController(_context, 999);
 
         var result = await controller.Delete(1);
 
@@ -81,14 +78,13 @@ public class CategoryControllerTests
     [Fact]
     public async Task Verify_Fail_WhenUserTriesToUpdateCategoryThatDoesNotBelongToThem()
     {
-        var context = TestDbContextFactory.Create(Guid.NewGuid().ToString());
-        using (var seedContext = context.CreateDbContext())
+        using (var seedContext = _context.CreateDbContext())
         {
             seedContext.Category.Add(new Category { Id = 1, UserId = 111, CategoryName = "Groceries" });
             await seedContext.SaveChangesAsync();
         }
 
-        var controller = CreateController(context, 999);
+        var controller = CreateController(_context, 999);
 
         var incomingPayLoad = new Category
         {
@@ -105,14 +101,13 @@ public class CategoryControllerTests
     [Fact]
     public async Task Verify_NewCategoryIsRetrievedByGetById()
     {
-        var context = TestDbContextFactory.Create(Guid.NewGuid().ToString());
-        using (var seedContext = context.CreateDbContext())
+        using (var seedContext = _context.CreateDbContext())
         {
             seedContext.Category.Add(new Category { Id = 1, UserId = 111, CategoryName = "Groceries" });
             await seedContext.SaveChangesAsync();
         }
 
-        var controller = CreateController(context, 111);
+        var controller = CreateController(_context, 111);
 
         var result = await controller.GetById(1) as OkObjectResult;
 
@@ -125,8 +120,7 @@ public class CategoryControllerTests
     [Fact]
     public async Task Verify_AllNewCategoriesAreRetrievedByGetAll()
     {
-        var context = TestDbContextFactory.Create(Guid.NewGuid().ToString());
-        using (var seedContext = context.CreateDbContext())
+        using (var seedContext = _context.CreateDbContext())
         {
             seedContext.Category.Add(new Category { Id = 1, UserId = 111, CategoryName = "Groceries" });
             seedContext.Category.Add(new Category { Id = 2, UserId = 111, CategoryName = "Utilities" });
@@ -134,7 +128,7 @@ public class CategoryControllerTests
             await seedContext.SaveChangesAsync();
         }
 
-        var controller = CreateController(context, 111);
+        var controller = CreateController(_context, 111);
 
         var result = await controller.GetAll() as OkObjectResult;
 
@@ -144,7 +138,7 @@ public class CategoryControllerTests
         Assert.Equal(2, categories.Count);
 
         // Change to user 999 and verify they only get their category
-        controller = CreateController(context, 999);
+        controller = CreateController(_context, 999);
 
         var resultForUser999 = await controller.GetAll() as OkObjectResult;
 
@@ -157,14 +151,13 @@ public class CategoryControllerTests
     [Fact]
     public async Task Verify_CategoryIsDeletedSuccessfully()
     {
-        var context = TestDbContextFactory.Create(Guid.NewGuid().ToString());
-        using (var seedContext = context.CreateDbContext())
+        using (var seedContext = _context.CreateDbContext())
         {
             seedContext.Category.Add(new Category { Id = 1, UserId = 111, CategoryName = "Groceries" });
             await seedContext.SaveChangesAsync();
         }
 
-        var controller = CreateController(context, 111);
+        var controller = CreateController(_context, 111);
 
         var deleteResult = await controller.Delete(1);
         Assert.IsType<NoContentResult>(deleteResult);
@@ -177,14 +170,13 @@ public class CategoryControllerTests
     [Fact]
     public async Task Verify_CategoryIsUpdatedSuccessfully()
     {
-        var context = TestDbContextFactory.Create(Guid.NewGuid().ToString());
-        using (var seedContext = context.CreateDbContext())
+        using (var seedContext = _context.CreateDbContext())
         {
             seedContext.Category.Add(new Category { Id = 1, UserId = 111, CategoryName = "Groceries" });
             await seedContext.SaveChangesAsync();
         }
 
-        var controller = CreateController(context, 111);
+        var controller = CreateController(_context, 111);
 
         var updateResult = await controller.Update(1, new Category { Id = 1, UserId = 111, CategoryName = "Updated Groceries" });
         Assert.IsType<NoContentResult>(updateResult);
@@ -200,14 +192,13 @@ public class CategoryControllerTests
     [Fact]
     public async Task Verify_CategoryUpdateFails_WhenIdMismatch()
     {
-        var context = TestDbContextFactory.Create(Guid.NewGuid().ToString());
-        using (var seedContext = context.CreateDbContext())
+        using (var seedContext = _context.CreateDbContext())
         {
             seedContext.Category.Add(new Category { Id = 1, UserId = 111, CategoryName = "Groceries" });
             await seedContext.SaveChangesAsync();
         }
 
-        var controller = CreateController(context, 111);
+        var controller = CreateController(_context, 111);
 
         var updateResult = await controller.Update(1, new Category { Id = 2, UserId = 111, CategoryName = "Updated Groceries" });
         var badRequestResult = Assert.IsType<BadRequestObjectResult>(updateResult);
@@ -218,14 +209,13 @@ public class CategoryControllerTests
     [Fact]
     public async Task Verify_CategoryUpdateFails_WhenModelStateIsInvalid()
     {
-        var context = TestDbContextFactory.Create(Guid.NewGuid().ToString());
-        using (var seedContext = context.CreateDbContext())
+        using (var seedContext = _context.CreateDbContext())
         {
             seedContext.Category.Add(new Category { Id = 1, UserId = 111, CategoryName = "Groceries" });
             await seedContext.SaveChangesAsync();
         }
 
-        var controller = CreateController(context, 111);
+        var controller = CreateController(_context, 111);
 
         controller.ModelState.AddModelError("CategoryName", "Required");
 
@@ -238,14 +228,13 @@ public class CategoryControllerTests
     [Fact]
     public async Task Update_Fails_WhenCategoryBelongsToAnotherUser()
     {
-        var context = TestDbContextFactory.Create(Guid.NewGuid().ToString());
-        using (var seedContext = context.CreateDbContext())
+        using (var seedContext = _context.CreateDbContext())
         {
             seedContext.Category.Add(new Category { Id = 1, UserId = 111, CategoryName = "Groceries" });
             await seedContext.SaveChangesAsync();
         }
 
-        var controller = CreateController(context, 111);
+        var controller = CreateController(_context, 111);
 
         var updateResult = await controller.Update(1, new Category { Id = 1, UserId = 999, CategoryName = "Updated Groceries" });
          var badRequestResult = Assert.IsType<BadRequestObjectResult>(updateResult);

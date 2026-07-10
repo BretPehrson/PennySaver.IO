@@ -74,6 +74,13 @@ public class TransactionController(IDbContextFactory<PennySaverDbContext> dbCont
     {
         int userId = GetCurrentUserId();
         using var context = await _context.CreateDbContextAsync();
+        
+        var existing = await context.Transaction
+            .Include(t => t.Account)
+            .FirstOrDefaultAsync(t => t.Id == id && t.Account!.UserId == userId);
+
+        if (existing == null) return NotFound();
+        if (existing.Status == TransactionStatus.Voided) return BadRequest("Cannot update a voided transaction.");
 
         if (transaction.Account == null && transaction.AccountId != 0)
         {
@@ -83,13 +90,6 @@ public class TransactionController(IDbContextFactory<PennySaverDbContext> dbCont
 
         if (userId != transaction.Account!.UserId)
             return BadRequest("Cannot update a transaction that belongs to another user.");
-        
-        var existing = await context.Transaction
-            .Include(t => t.Account)
-            .FirstOrDefaultAsync(t => t.Id == id && t.Account!.UserId == userId);
-
-        if (existing == null) return NotFound();
-        if (existing.Status == TransactionStatus.Voided) return BadRequest("Cannot update a voided transaction.");
 
         existing.Amount = transaction.Amount;
         existing.Description = transaction.Description;
