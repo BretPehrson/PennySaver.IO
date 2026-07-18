@@ -37,6 +37,11 @@ if (plaidEnabled)
 }
 else
 {
+    // Safety check: Prevent running mock financial syncs on live production servers
+    if (builder.Environment.IsProduction())
+    {
+        throw new InvalidOperationException("Cannot use MockBankSyncService in a Production environment!");
+    }
     builder.Services.AddSingleton<IBankSyncService, MockBankSyncService>();
 }
 builder.Services.AddScoped<IAccountSyncCoordinator, AccountSyncCoordinator>();

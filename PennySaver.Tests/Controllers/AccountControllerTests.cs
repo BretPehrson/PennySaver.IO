@@ -7,25 +7,26 @@ public class AccountControllerTests
 
     public AccountControllerTests()
     {
-        _context = TestDbContextFactory.Create(Guid.NewGuid().ToString());
+        _context = TestDbContextFactory.Create();
     }
 
-    private static AccountController CreateAccountController(IDbContextFactory<PennySaverDbContext> context, int? userId = null) => new(context)
+    private static AccountController CreateController(IDbContextFactory<PennySaverDbContext> context, int? userId = null) => new(context)
     {
         ControllerContext = TestAuthHelper.GetControllerContext(userId)
     };
 
-    private static TransactionController CreateTransactionController(IDbContextFactory<PennySaverDbContext> context, int? userId = null) => new(context)
-    {
-        ControllerContext = TestAuthHelper.GetControllerContext(userId)
-    };
-
+    #region GetAll Tests
 
     [Fact]
     public async Task GetAll_ReturnsOnlyLoggedInUserAccounts()
     {
         using (var seedContext = _context.CreateDbContext())
         {
+            seedContext.User.AddRange(
+                new User { UserId = 111, Email = "user111@example.com", Password = "abcd1234" },
+                new User { UserId = 999, Email = "malicious_user@example.com", Password = "abcd1234" }
+            );
+
             seedContext.Account.AddRange(
                 new Account { Id = 1, UserId = 111, AccountName = "User 1 Account" },
                 new Account { Id = 2, UserId = 111, AccountName = "User 2 Account" },
@@ -35,12 +36,12 @@ public class AccountControllerTests
             await seedContext.SaveChangesAsync();
         }
 
-        var controller = CreateAccountController(_context, 111);
+        var controller = CreateController(_context, 111);
 
         var result = await controller.GetAll();
 
-        var okResult = Assert.IsType<OkObjectResult>(result);
-        var accounts = Assert.IsType<List<AccountResponseDto>>(okResult.Value);
+        var actionResult = Assert.IsType<ActionResult<IEnumerable<AccountResponseDto>>>(result);
+        var accounts = Assert.IsType<List<AccountResponseDto>>(actionResult.Value);
 
         Assert.Equal(2, accounts.Count);
         Assert.Contains(accounts, a => a.AccountName == "User 1 Account");
@@ -49,9 +50,143 @@ public class AccountControllerTests
     }
 
     [Fact]
-    public async Task Create_Succeeds_WhenAccountNameIsMissing()
+    public async Task GetAll_Fails_WhenUserIsUnauthorized()
     {
-        var controller = CreateAccountController(_context, 111);
+        var controller = CreateController(_context, null); // No user ID
+
+        var result = await controller.GetAll();
+        Assert.IsType<UnauthorizedResult>(result.Result);
+    }
+
+    [Fact]
+    public async Task GetAll_Fails_WhenUserHasNoAccounts()
+    {
+        using (var seedContext = _context.CreateDbContext())
+        {
+            seedContext.User.Add(new User { UserId = 111, Email = "user111@example.com", Password = "abcd1234" });
+            await seedContext.SaveChangesAsync();
+        }
+
+        var controller = CreateController(_context, 111);
+
+        var result = await controller.GetAll();
+        var actionResult = Assert.IsType<ActionResult<IEnumerable<AccountResponseDto>>>(result);
+        var accounts = Assert.IsType<List<AccountResponseDto>>(actionResult.Value);
+        Assert.Empty(accounts);
+    }
+
+    [Fact]
+    public async Task GetAll_Fails_WhenUserIdClaimIsMissing()
+    {
+        var controller = CreateController(_context, null); // No user ID
+
+        var result = await controller.GetAll();
+        Assert.IsType<UnauthorizedResult>(result.Result);
+    }
+
+    #endregion
+
+    #region GetById Tests
+
+    [Fact]
+    public async Task GetById_Succeeds_WhenAccountExists()
+    {
+        using (var seedContext = _context.CreateDbContext())
+        {
+            seedContext.User.Add(new User { UserId = 111, Email = "user111@example.com", Password = "abcd1234" });
+            seedContext.Account.Add(new Account { Id = 1, UserId = 111, AccountName = "User 111 Account", Balance = 100.00m, Type = Account.AccountType.Checking });
+            await seedContext.SaveChangesAsync();
+        }
+
+        var controller = CreateController(_context, 111);
+
+        var result = await controller.GetById(1);
+        var actionResult = Assert.IsType<ActionResult<AccountResponseDto>>(result);
+        var account = Assert.IsType<AccountResponseDto>(actionResult.Value);
+        Assert.Equal("User 111 Account", account.AccountName);
+    }
+
+    [Fact]
+    public async Task GetById_Fails_WhenAccountDoesNotExist()
+    {
+        using (var seedContext = _context.CreateDbContext())
+        {
+            seedContext.User.Add(new User { UserId = 111, Email = "user111@example.com", Password = "abcd1234" });
+            await seedContext.SaveChangesAsync();
+        }
+
+        var controller = CreateController(_context, 111);
+
+        var result = await controller.GetById(999); // Non-existent account ID
+        var actionResult = Assert.IsType<ActionResult<AccountResponseDto>>(result);
+        Assert.IsType<NotFoundResult>(actionResult.Result);
+    }
+
+    [Fact]
+    public async Task GetById_Fails_WhenAccountBelongsToAnotherUser()
+    {
+        using (var seedContext = _context.CreateDbContext())
+        {
+            seedContext.User.AddRange(
+                new User { UserId = 111, Email = "user111@example.com", Password = "abcd1234" },
+                new User { UserId = 222, Email = "user222@example.com", Password = "abcd1234" }
+            );
+            seedContext.Account.Add(new Account { Id = 1, UserId = 222, AccountName = "User 222 Account", Balance = 100.00m, Type = Account.AccountType.Checking });
+            await seedContext.SaveChangesAsync();
+        }
+
+        var controller = CreateController(_context, 111);
+
+        var result = await controller.GetById(1);
+        var actionResult = Assert.IsType<ActionResult<AccountResponseDto>>(result);
+        Assert.IsType<NotFoundResult>(actionResult.Result);
+    }
+
+    [Fact]
+    public async Task GetById_Fails_WhenUserIsNotAuthenticated()
+    {
+        var controller = CreateController(_context, null); // No user authenticated
+
+        var result = await controller.GetById(1);
+        var actionResult = Assert.IsType<ActionResult<AccountResponseDto>>(result);
+        Assert.IsType<UnauthorizedResult>(actionResult.Result);
+    }
+
+    #endregion
+
+    #region Create Tests
+
+    [Fact]
+    public async Task Create_Succeeds_WhenValidDataIsProvided()
+    {
+        using (var seedContext = _context.CreateDbContext())
+        {
+            seedContext.User.Add(new User { UserId = 111, Email = "user111@example.com", Password = "abcd1234" });
+            await seedContext.SaveChangesAsync();
+        }
+
+        var controller = CreateController(_context, 111);
+
+        var incomingPayLoad = new AccountCreateDto
+        {
+            AccountName = "New Account",
+            Balance = 100.00m,
+            Type = Account.AccountType.Checking
+        };
+
+        var result = await controller.Create(incomingPayLoad, _syncService);
+        var actionResult = Assert.IsType<ActionResult<AccountResponseDto>>(result);
+        var createdResult = Assert.IsType<CreatedAtRouteResult>(actionResult.Result);
+        var accountResponse = Assert.IsType<AccountResponseDto>(createdResult.Value);
+        Assert.Equal("New Account", accountResponse.AccountName);
+        Assert.Equal(100.00m, accountResponse.Balance);
+        Assert.Equal(Account.AccountType.Checking, accountResponse.Type);
+    }
+
+    [Fact]
+    public async Task Create_Fails_WhenAccountNameIsMissing()
+    {
+        var controller = CreateController(_context, 111);
 
         var incomingPayLoad = new AccountCreateDto
         {
@@ -60,15 +195,15 @@ public class AccountControllerTests
         };
 
         var result = await controller.Create(incomingPayLoad, _syncService);
-
-        var createResult = Assert.IsType<BadRequestObjectResult>(result);
+        var actionResult = Assert.IsType<ActionResult<AccountResponseDto>>(result);
+        var createResult = Assert.IsType<BadRequestObjectResult>(actionResult.Result);
         Assert.Equal("The AccountName field is required.", createResult.Value);
     }
 
     [Fact]
     public async Task Create_Fails_WhenBalanceIsNegative()
     {
-        var controller = CreateAccountController(_context, 111);
+        var controller = CreateController(_context, 111);
 
         var incomingPayLoad = new AccountCreateDto
         {
@@ -80,13 +215,40 @@ public class AccountControllerTests
         var syncService = new MockBankSyncService();
 
         var result = await controller.Create(incomingPayLoad, syncService);
-        Assert.IsType<BadRequestObjectResult>(result);
+        var actionResult = Assert.IsType<ActionResult<AccountResponseDto>>(result);
+        var badRequestResult = Assert.IsType<BadRequestObjectResult>(actionResult.Result);
+        Assert.Equal("Balance cannot be negative.", badRequestResult.Value);
+    }
+
+    [Fact]
+    public async Task Create_Fails_WhenAccountExistsForUser()
+    {
+        using (var seedContext = _context.CreateDbContext())
+        {
+            seedContext.User.Add(new User { UserId = 111, Email = "user111@example.com", Password = "abcd1234" });
+            seedContext.Account.Add(new Account { Id = 1, UserId = 111, AccountName = "User 111 Account", Balance = 100.00m, Type = Account.AccountType.Checking });
+            await seedContext.SaveChangesAsync();
+        }
+
+        var controller = CreateController(_context, 111);
+
+        var incomingPayLoad = new AccountCreateDto
+        {
+            AccountName = "User 111 Account",
+            Balance = 100.00m,
+            Type = Account.AccountType.Checking
+        };
+
+        var result = await controller.Create(incomingPayLoad, _syncService);
+        var actionResult = Assert.IsType<ActionResult<AccountResponseDto>>(result);
+        var badRequestResult = Assert.IsType<BadRequestObjectResult>(actionResult.Result);
+        Assert.Equal("An account with the same name already exists for this user.", badRequestResult.Value);
     }
 
     [Fact]
     public async Task Create_Fails_WhenInstitutionNameIsTooLong()
     {
-        var controller = CreateAccountController(_context, 111);
+        var controller = CreateController(_context, 111);
 
         var incomingPayLoad = new AccountCreateDto
         {
@@ -97,217 +259,27 @@ public class AccountControllerTests
         };
 
         var result = await controller.Create(incomingPayLoad, _syncService);
-        Assert.IsType<BadRequestObjectResult>(result);
+        var actoinResult = Assert.IsType<ActionResult<AccountResponseDto>>(result);
+        var badRequestResult = Assert.IsType<BadRequestObjectResult>(actoinResult.Result);
+        Assert.Equal("Institution name cannot exceed 100 characters.", badRequestResult.Value);
     }
 
-    [Fact]
-    public async Task Create_Fails_WhenAccountBelongsToAnotherUser()
-    {
-        using (var seedContext = _context.CreateDbContext())
-        {
-            seedContext.Category.Add(new Category { Id = 10, UserId = 111, CategoryName = "Groceries" });
-            seedContext.Account.Add(new Account { Id = 20, UserId = 999, AccountName = "Malicious Checking" });
-            await seedContext.SaveChangesAsync();
-        }
+    #endregion
 
-        var controller = CreateTransactionController(_context, 111);
-
-        var incomingPayLoad = new Transaction
-        {
-            Id = 1,
-            Amount = 100,
-            Date = DateTime.Now,
-            AccountId = 20, // Belongs to user 999
-            CategoryId = 10 // Belongs to user 111, but account ownership should be checked first
-        };
-
-        var result = await controller.Create(incomingPayLoad);
-
-        Assert.IsType<BadRequestObjectResult>(result);
-    }
-
-    [Fact]
-    public async Task Create_Fails_WhenCategoryBelongsToAnotherUser()
-    {
-        using (var seedContext = _context.CreateDbContext())
-        {
-            seedContext.Category.Add(new Category { Id = 10, UserId = 999, CategoryName = "Malicious Category" });
-            seedContext.Account.Add(new Account { Id = 20, UserId = 111, AccountName = "User 111 Account" });
-            await seedContext.SaveChangesAsync();
-        }
-
-        var controller = CreateTransactionController(_context, 111);
-
-        var incomingPayLoad = new Transaction
-        {
-            Id = 1,
-            Amount = 100,
-            AccountId = 20, // Belongs to user 111
-            CategoryId = 10 // Belongs to user 999
-        };
-
-        var result = await controller.Create(incomingPayLoad);
-
-        Assert.IsType<BadRequestObjectResult>(result);
-    }
-
-    [Fact]
-    public async Task Create_Succeeds_WhenAccountAndCategoryBelongToLoggedInUser()
-    {
-        using (var seedContext = _context.CreateDbContext())
-        {
-            seedContext.Category.Add(new Category { Id = 1, UserId = 111, CategoryName = "Groceries" });
-            seedContext.Account.Add(new Account { Id = 1, UserId = 111, AccountName = "User 111 Account" });
-            await seedContext.SaveChangesAsync();
-        }
-
-        var controller = CreateTransactionController(_context, 111);
-
-        var incomingPayLoad = new Transaction
-        {
-            Id = 1,
-            Amount = 100,
-            Date = DateTime.Now,
-            AccountId = 1, // Belongs to user 111
-            CategoryId = 1 // Belongs to user 111
-        };
-
-        var result = await controller.Create(incomingPayLoad);
-
-        Assert.IsType<OkObjectResult>(result);
-    }
-
-    [Fact]
-    public async Task Create_Fails_WhenAccountDoesNotExist()
-    {
-        using (var seedContext = _context.CreateDbContext())
-        {
-            seedContext.Category.Add(new Category { Id = 1, UserId = 111, CategoryName = "Groceries" });
-            await seedContext.SaveChangesAsync();
-        }
-
-        var controller = CreateTransactionController(_context, 111);
-
-        var incomingPayLoad = new Transaction
-        {
-            Id = 1,
-            Amount = 100,
-            Date = DateTime.Now,
-            AccountId = 999, // Non-existent account
-            CategoryId = 1 // Belongs to user 111
-        };
-
-        var result = await controller.Create(incomingPayLoad);
-
-        Assert.IsType<BadRequestObjectResult>(result);
-    }
-
-    [Fact]
-    public async Task Create_Fails_WhenCategoryDoesNotExist()
-    {
-        using (var seedContext = _context.CreateDbContext())
-        {
-            seedContext.Account.Add(new Account { Id = 1, UserId = 111, AccountName = "User 111 Account" });
-            await seedContext.SaveChangesAsync();
-        }
-
-        var controller = CreateTransactionController(_context, 111);
-
-        var incomingPayLoad = new Transaction
-        {
-            Id = 1,
-            Amount = 100,
-            Date = DateTime.Now,
-            AccountId = 1, // Belongs to user 111
-            CategoryId = 999 // Non-existent category
-        };
-
-        var result = await controller.Create(incomingPayLoad);
-
-        Assert.IsType<BadRequestObjectResult>(result);
-    }
-
-    [Fact]
-    public async Task Create_Fails_WhenAccountAndCategoryDoNotExist()
-    {
-        var controller = CreateTransactionController(_context, 111);
-
-        var incomingPayLoad = new Transaction
-        {
-            Id = 1,
-            Amount = 100,
-            Date = DateTime.Now,
-            AccountId = 999, // Non-existent account
-            CategoryId = 999 // Non-existent category
-        };
-
-        var result = await controller.Create(incomingPayLoad);
-
-        Assert.IsType<BadRequestObjectResult>(result);
-    }
-
-    [Fact]
-    public async Task Create_Fails_WhenAccountAndCategoryBelongToAnotherUser()
-    {
-        using (var seedContext = _context.CreateDbContext())
-        {
-            seedContext.Category.Add(new Category { Id = 10, UserId = 999, CategoryName = "Malicious Category" });
-            seedContext.Account.Add(new Account { Id = 20, UserId = 999, AccountName = "Malicious Checking" });
-            await seedContext.SaveChangesAsync();
-        }
-
-        var controller = CreateTransactionController(_context, 111);
-
-        var incomingPayLoad = new Transaction
-        {
-            Id = 1,
-            Amount = 100,
-            Date = DateTime.Now,
-            AccountId = 20, // Belongs to user 999
-            CategoryId = 10 // Belongs to user 999
-        };
-
-        var result = await controller.Create(incomingPayLoad);
-
-        Assert.IsType<BadRequestObjectResult>(result);
-    }
-
-    [Fact]
-    public async Task Create_Succeeds_WhenAccountAndCategoryAreValidAndBelongToLoggedInUser()
-    {
-        using (var seedContext = _context.CreateDbContext())
-        {
-            seedContext.Category.Add(new Category { Id = 1, UserId = 111, CategoryName = "Groceries" });
-            seedContext.Account.Add(new Account { Id = 1, UserId = 111, AccountName = "User 111 Account" });
-            await seedContext.SaveChangesAsync();
-        }
-
-        var controller = CreateTransactionController(_context, 111);
-
-        var incomingPayLoad = new Transaction
-        {
-            Id = 1,
-            Amount = 100,
-            Date = DateTime.Now,
-            AccountId = 1, // Belongs to user 111
-            CategoryId = 1 // Belongs to user 111
-        };
-
-        var result = await controller.Create(incomingPayLoad);
-
-        Assert.IsType<OkObjectResult>(result);
-    }
+    #region Update Tests
 
     [Fact]
     public async Task Update_Succeeds_WhenAccountBelongsToLoggedInUser()
     {
         using (var seedContext = _context.CreateDbContext())
         {
+            seedContext.User.Add(new User { UserId = 111, Email = "user111@example.com", Password = "abcd1234" });
+
             seedContext.Account.Add(new Account { Id = 1, UserId = 111, AccountName = "User 111 Account" });
             await seedContext.SaveChangesAsync();
         }
 
-        var controller = CreateAccountController(_context, 111);
+        var controller = CreateController(_context, 111);
 
         var updatePayload = new AccountCreateDto
         {
@@ -327,11 +299,16 @@ public class AccountControllerTests
     {
         using (var seedContext = _context.CreateDbContext())
         {
+            seedContext.User.AddRange(
+                new User { UserId = 111, Email = "user111@example.com", Password = "abcd1234" },
+                new User { UserId = 999, Email = "malicious_user@example.com", Password = "abcd1234" }
+            );
             seedContext.Account.Add(new Account { Id = 1, UserId = 999, AccountName = "Malicious Checking" });
             await seedContext.SaveChangesAsync();
         }
 
-        var controller = CreateAccountController(_context, 111);
+        // log in as 111
+        var controller = CreateController(_context, 111);
 
         var updatePayload = new AccountCreateDto
         {
@@ -341,15 +318,17 @@ public class AccountControllerTests
             Balance = 500.00m
         };
 
+        // updating account that belongs to user 999
         var result = await controller.Update(1, updatePayload);
 
         Assert.IsType<NotFoundResult>(result);
     }
 
+
     [Fact]
     public async Task Update_Fails_WhenAccountDoesNotExist()
     {
-        var controller = CreateAccountController(_context, 111);
+        var controller = CreateController(_context, 111);
 
         var updatePayload = new AccountCreateDto
         {
@@ -369,11 +348,13 @@ public class AccountControllerTests
     {
         using (var seedContext = _context.CreateDbContext())
         {
+            seedContext.User.Add(new User { UserId = 111, Email = "user111@example.com", Password = "abcd1234" });
+
             seedContext.Account.Add(new Account { Id = 1, UserId = 111, AccountName = "User 111 Account" });
             await seedContext.SaveChangesAsync();
         }
 
-        var controller = CreateAccountController(_context, null); // No user ID
+        var controller = CreateController(_context, null); // No user ID
 
         var updatePayload = new AccountCreateDto
         {
@@ -383,7 +364,8 @@ public class AccountControllerTests
             Balance = 500.00m
         };
 
-        await Assert.ThrowsAsync<UnauthorizedAccessException>(() => controller.Update(1, updatePayload));
+        var result = await controller.Update(1, updatePayload);
+        Assert.IsType<UnauthorizedResult>(result);
     }
 
     [Fact]
@@ -391,11 +373,13 @@ public class AccountControllerTests
     {
         using (var seedContext = _context.CreateDbContext())
         {
+            seedContext.User.Add(new User { UserId = 111, Email = "user111@example.com", Password = "abcd1234" });
+
             seedContext.Account.Add(new Account { Id = 1, UserId = 111, AccountName = "User 111 Account" });
             await seedContext.SaveChangesAsync();
         }
 
-        var controller = CreateAccountController(_context, 111);
+        var controller = CreateController(_context, 111);
 
         var updatePayload = new AccountCreateDto
         {
@@ -415,11 +399,13 @@ public class AccountControllerTests
     {
         using (var seedContext = _context.CreateDbContext())
         {
+            seedContext.User.Add(new User { UserId = 111, Email = "user111@example.com", Password = "abcd1234" });
+
             seedContext.Account.Add(new Account { Id = 1, UserId = 111, AccountName = "User 111 Account" });
             await seedContext.SaveChangesAsync();
         }
 
-        var controller = CreateAccountController(_context, 111);
+        var controller = CreateController(_context, 111);
 
         var updatePayload = new AccountCreateDto
         {
@@ -440,11 +426,13 @@ public class AccountControllerTests
     {
         using (var seedContext = _context.CreateDbContext())
         {
+            seedContext.User.Add(new User { UserId = 111, Email = "user111@example.com", Password = "abcd1234" });
+
             seedContext.Account.Add(new Account { Id = 1, UserId = 111, AccountName = "User 111 Account" });
             await seedContext.SaveChangesAsync();
         }
 
-        var controller = CreateAccountController(_context, 111);
+        var controller = CreateController(_context, 111);
 
         var updatePayload = new AccountCreateDto
         {
@@ -460,16 +448,22 @@ public class AccountControllerTests
         Assert.Equal("Institution name cannot exceed 100 characters.", badRequestResult.Value);
     }
 
+    #endregion
+
+    #region Delete Tests
+
     [Fact]
     public async Task Delete_Succeeds_WhenAccountBelongsToLoggedInUser()
     {
         using (var seedContext = _context.CreateDbContext())
         {
+            seedContext.User.Add(new User { UserId = 111, Email = "user111@example.com", Password = "abcd1234" });
+            
             seedContext.Account.Add(new Account { Id = 1, UserId = 111, AccountName = "User 111 Account" });
             await seedContext.SaveChangesAsync();
         }
 
-        var controller = CreateAccountController(_context, 111);
+        var controller = CreateController(_context, 111);
 
         var result = await controller.Delete(1);
 
@@ -481,11 +475,16 @@ public class AccountControllerTests
     {
         using (var seedContext = _context.CreateDbContext())
         {
+            seedContext.User.AddRange(
+                new User { UserId = 111, Email = "user111@example.com", Password = "abcd1234" },
+                new User { UserId = 999, Email = "user999@example.com", Password = "abcd1234" }
+            );
+
             seedContext.Account.Add(new Account { Id = 1, UserId = 999, AccountName = "Malicious Checking" });
             await seedContext.SaveChangesAsync();
         }
 
-        var controller = CreateAccountController(_context, 111);
+        var controller = CreateController(_context, 111);
 
         var result = await controller.Delete(1);
 
@@ -495,7 +494,7 @@ public class AccountControllerTests
     [Fact]
     public async Task Delete_Fails_WhenAccountDoesNotExist()
     {
-        var controller = CreateAccountController(_context, 111);
+        var controller = CreateController(_context, 111);
 
         var result = await controller.Delete(999);
 
@@ -508,26 +507,35 @@ public class AccountControllerTests
         using (var seedContext = _context.CreateDbContext())
         {
             seedContext.Account.Add(new Account { Id = 1, UserId = 111, AccountName = "User 111 Account" });
+            seedContext.User.Add(new User { UserId = 111, Email = "user111@example.com", Password = "abcd1234" });
             await seedContext.SaveChangesAsync();
         }
 
-        var controller = CreateAccountController(_context, null); // No user ID
+        var controller = CreateController(_context, null); // No user ID
+        var result = await controller.Delete(1);
 
-        await Assert.ThrowsAsync<UnauthorizedAccessException>(() => controller.Delete(1));
+        Assert.IsType<UnauthorizedResult>(result);
     }
+
+    #endregion
+
+    #region Plaid Access Token Handling Tests
 
     [Fact]
     public async Task Delete_Fails_WhenUserIsAuthenticatedButUserIdClaimIsMissing()
     {
         using (var seedContext = _context.CreateDbContext())
         {
+            seedContext.User.Add(new User { UserId = 111, Email = "user111@example.com", Password = "abcd1234" });
+
             seedContext.Account.Add(new Account { Id = 1, UserId = 111, AccountName = "User 111 Account" });
             await seedContext.SaveChangesAsync();
         }
 
-        var controller = CreateAccountController(_context, null);
+        var controller = CreateController(_context, null);
         
-        await Assert.ThrowsAsync<UnauthorizedAccessException>(() => controller.Delete(1));
+        var result = await controller.Delete(1);
+        Assert.IsType<UnauthorizedResult>(result);
     }
 
     [Fact]
@@ -535,6 +543,8 @@ public class AccountControllerTests
     {
         using (var seedContext = _context.CreateDbContext())
         {
+            seedContext.User.Add(new User { UserId = 111, Email = "user111@example.com", Password = "abcd1234" });
+
             seedContext.Account.Add(new Account 
             { 
                 Id = 1, 
@@ -545,12 +555,12 @@ public class AccountControllerTests
             await seedContext.SaveChangesAsync();
         }
 
-        var controller = CreateAccountController(_context, 111);
+        var controller = CreateController(_context, 111);
 
         var result = await controller.GetById(1);
 
-        var okResult = Assert.IsType<OkObjectResult>(result);
-        var accountDto = Assert.IsType<AccountResponseDto>(okResult.Value);
+        var actionResult = Assert.IsType<ActionResult<AccountResponseDto>>(result);
+        var accountDto = Assert.IsType<AccountResponseDto>(actionResult.Value);
 
         var json = System.Text.Json.JsonSerializer.Serialize(accountDto);
         Assert.DoesNotContain("sensitive_token_value", json, StringComparison.OrdinalIgnoreCase);
@@ -564,6 +574,8 @@ public class AccountControllerTests
     {
         using (var seedContext = _context.CreateDbContext())
         {
+            seedContext.User.Add(new User { UserId = 111, Email = "user111@example.com", Password = "abcd1234" });
+
             seedContext.Account.AddRange(
                 new Account 
                 { 
@@ -583,12 +595,12 @@ public class AccountControllerTests
             await seedContext.SaveChangesAsync();
         }
 
-        var controller = CreateAccountController(_context, 111);
+        var controller = CreateController(_context, 111);
 
         var result = await controller.GetAll();
 
-        var okResult = Assert.IsType<OkObjectResult>(result);
-        var accounts = Assert.IsType<List<AccountResponseDto>>(okResult.Value);
+        var actionResult = Assert.IsType<ActionResult<IEnumerable<AccountResponseDto>>>(result);
+        var accounts = Assert.IsType<List<AccountResponseDto>>(actionResult.Value);
 
         foreach (var account in accounts)
         {
@@ -603,7 +615,13 @@ public class AccountControllerTests
     [Fact]
     public async Task Create_Automated_ReturnsSafeDto_AndStoresTokenInternally()
     {
-        var controller = CreateAccountController(_context, 111);
+        using (var seedContext = _context.CreateDbContext())
+        {
+            seedContext.User.Add(new User { UserId = 111, Email = "user111@example.com", Password = "abcd1234" });
+            await seedContext.SaveChangesAsync();
+        }
+
+        var controller = CreateController(_context, 111);
 
         var incomingPayLoad = new AccountCreateDto
         {
@@ -617,8 +635,9 @@ public class AccountControllerTests
 
         var result = await controller.Create(incomingPayLoad, _syncService);
 
-        var okResult = Assert.IsType<CreatedAtActionResult>(result);
-        var createdAccount = Assert.IsType<AccountResponseDto>(okResult.Value);
+        var actionResult = Assert.IsType<ActionResult<AccountResponseDto>>(result);
+        var createdRouteResult = Assert.IsType<CreatedAtRouteResult>(actionResult.Result);
+        var createdAccount = Assert.IsType<AccountResponseDto>(createdRouteResult.Value);
 
         Assert.Equal("Automated Account", createdAccount.AccountName);
         Assert.Equal("Test Bank", createdAccount.Institution);
@@ -638,9 +657,9 @@ public class AccountControllerTests
         public string EnvironmentName { get; set; } = "Development";
         public string ApplicationName { get; set; } = string.Empty;
         public string WebRootPath { get; set; } = string.Empty;
-        public Microsoft.Extensions.FileProviders.IFileProvider? WebRootFileProvider { get; set; }
+        public Microsoft.Extensions.FileProviders.IFileProvider WebRootFileProvider { get; set; } = null!;
         public string ContentRootPath { get; set; } = string.Empty;
-        public Microsoft.Extensions.FileProviders.IFileProvider? ContentRootFileProvider { get; set; }
+        public Microsoft.Extensions.FileProviders.IFileProvider ContentRootFileProvider { get; set; } = null!;
 
         public bool IsDevelopment() => EnvironmentName == "Development";
     }
@@ -648,8 +667,12 @@ public class AccountControllerTests
     [Fact]
     public async Task Create_Dev_GeneratesUniqueMockTokens()
     {
-        var controller = CreateAccountController(_context, 111);
-        var devEnv = new DevEnv();
+        using (var seedContext = _context.CreateDbContext())
+        {
+            seedContext.User.Add(new User { UserId = 111, Email = "user111@example.com", Password = "abcd1234" });
+            await seedContext.SaveChangesAsync();
+        }
+
 
         var dto1 = new AccountCreateDto
         {
@@ -671,12 +694,17 @@ public class AccountControllerTests
             PlaidAccessToken = null
         };
 
+        var controller = CreateController(_context, 111);
+        var devEnv = new DevEnv();
+
         var res1 = await controller.Create(dto1, _syncService, devEnv);
-        var created1 = Assert.IsType<CreatedAtActionResult>(res1);
+        var actionResult1 = Assert.IsType<ActionResult<AccountResponseDto>>(res1);
+        var created1 = Assert.IsType<CreatedAtRouteResult>(actionResult1.Result);
         var acc1 = Assert.IsType<AccountResponseDto>(created1.Value);
 
         var res2 = await controller.Create(dto2, _syncService, devEnv);
-        var created2 = Assert.IsType<CreatedAtActionResult>(res2);
+        var actionResult2 = Assert.IsType<ActionResult<AccountResponseDto>>(res2);
+        var created2 = Assert.IsType<CreatedAtRouteResult>(actionResult2.Result);
         var acc2 = Assert.IsType<AccountResponseDto>(created2.Value);
 
         using var verifyContext = await _context.CreateDbContextAsync();
@@ -689,4 +717,6 @@ public class AccountControllerTests
         Assert.NotNull(a2.PlaidAccessToken);
         Assert.NotEqual(a1.PlaidAccessToken, a2.PlaidAccessToken);
     }
+
+    #endregion
 }

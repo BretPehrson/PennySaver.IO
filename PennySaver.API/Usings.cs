@@ -15,3 +15,5 @@ global using Microsoft.AspNetCore.Authentication.JwtBearer;
 global using PennySaver.API.Services;
 global using static PennySaver.API.Models.Account;
 global using System.Text.Json;
+global using PennySaver.API.Dtos;
+global using PennySaver.API.Extensions;

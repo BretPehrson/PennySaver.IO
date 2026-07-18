@@ -30,9 +30,12 @@ public class Account
     [Required]
     public AccountType Type { get; set; } = AccountType.Checking;
 
-    [Required]
+    [Required(ErrorMessage = "Balance is required.")]
     [Column(TypeName = "decimal(18,2)")]
+    [RegularExpression(@"^\d+(\.\d{1,2})?$", ErrorMessage = "Balance can only have 2 decimal places.")]
     public decimal Balance { get; set; } = 0.00m;
+
+    public DateTime? DeletedAt { get; set; } = null;
 
     // Foreign Key Relationships
     [Required]
@@ -52,59 +55,4 @@ public class Account
     public string? PlaidAccountId { get; set; }
     public AccountSyncStatus SyncStatus { get; set; } = AccountSyncStatus.Healthy;
     public DateTime LastSynced { get; set; } = DateTime.UtcNow;
-
-    public AccountResponseDto ToDto()
-    {
-        return new AccountResponseDto
-        {
-            AccountName = this.AccountName,
-            Institution = this.Institution,
-            Type = this.Type,
-            Balance = this.Balance,
-            IsAutomated = this.IsAutomated,
-            SyncStatus = this.SyncStatus
-        };
-    }
-}
-
-public class AccountCreateDto
-{
-    [Required]
-    [MaxLength(100)]
-    public string AccountName { get; set; } = string.Empty;
-
-    [MaxLength(100)]
-    public string Institution { get; set; } = string.Empty;
-
-    [Required]
-    public Account.AccountType Type { get; set; } = Account.AccountType.Checking;
-
-    [Range(0, double.MaxValue, ErrorMessage = "Balance must be a non-negative value.")]
-    public decimal Balance { get; set; } = 0.00m;
-
-    public bool IsAutomated { get; set; } = false;
-    public string? PlaidAccessToken { get; set; }
-    public string? PlaidAccountId { get; set; }
-}
-
-public class AccountResponseDto
-{
-    public int Id { get; set; }
-
-    [Required]
-    [MaxLength(100)]
-    public string AccountName { get; set; } = string.Empty;
-
-    [MaxLength(100)]
-    public string Institution { get; set; } = string.Empty;
-
-    [Required]
-    public Account.AccountType Type { get; set; } = Account.AccountType.Checking;
-
-    [Range(0, double.MaxValue, ErrorMessage = "Balance must be a non-negative value.")]
-    public decimal Balance { get; set; } = 0.00m;
-
-    public bool IsAutomated { get; set; } = false;
-    public string? PlaidAccountId { get; set; }
-    public AccountSyncStatus SyncStatus { get; set; } = AccountSyncStatus.Healthy;
 }
