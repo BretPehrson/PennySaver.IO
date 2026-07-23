@@ -15,6 +15,12 @@ public class PennySaverDbContext(DbContextOptions<PennySaverDbContext> options)
     {
         base.OnModelCreating(modelBuilder);
 
+        modelBuilder.Entity<Account>()
+            .HasQueryFilter(a => a.DeletedAt == null);
+
+        modelBuilder.Entity<Transaction>()
+            .HasQueryFilter(t => t.Account!.DeletedAt == null);
+
         modelBuilder.Entity<Transaction>()
             .HasOne(t => t.Category)
             .WithMany() 

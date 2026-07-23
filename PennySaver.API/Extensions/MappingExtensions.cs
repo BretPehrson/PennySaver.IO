@@ -13,4 +13,33 @@ public static class MappingExtensions
         PlaidAccountId = account.PlaidAccountId,
         SyncStatus = account.SyncStatus
     };
+
+    public static BudgetResponseDto ToDto(this Budget budget) => new()
+    {
+        Id = budget.Id,
+        CategoryId = budget.CategoryId,
+        Name = budget.Name,
+        TargetAmount = budget.TargetAmount,
+        StartDate = budget.StartDate,
+        EndDate = budget.EndDate,
+        Month = budget.Month,
+        Year = budget.Year
+    };
+
+    public static CategoryResponseDto ToDto(this Category category) => new()
+    {
+        Id = category.Id,
+        Name = category.Name
+    };
+
+    public static TransactionResponseDto ToDto(this Transaction transaction) => new()
+    {
+        Id = transaction.Id,
+        Amount = transaction.Amount,
+        Description = transaction.Description,
+        CreatedAt = transaction.CreatedAt,
+        Status = transaction.Status,
+        AccountId = transaction.AccountId,
+        CategoryId = transaction.CategoryId
+    };
 }

@@ -7,7 +7,7 @@ public class AuthenticationControllerTests
 
     public AuthenticationControllerTests()
     {
-        _context = TestDbContextFactory.Create(Guid.NewGuid().ToString());
+        _context = TestDbContextFactory.Create();
 
         var jwtOptions = new JwtOption
         {

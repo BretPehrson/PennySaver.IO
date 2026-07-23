@@ -57,6 +57,7 @@ public class AccountController(IDbContextFactory<PennySaverDbContext> dbContext)
     {
         if (!int.TryParse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value, out var userId))
             return Unauthorized();
+        
         try
         {
             await SyncCoordinator.RefreshUserBalancesAsync(userId);
@@ -77,6 +78,9 @@ public class AccountController(IDbContextFactory<PennySaverDbContext> dbContext)
         if (!ModelState.IsValid) return BadRequest(ModelState);
         if (dto.Balance < 0) return BadRequest("Balance cannot be negative.");
         if (dto.Institution != null && dto.Institution.Length > 100) return BadRequest("Institution name cannot exceed 100 characters.");
+        if (dto.AccountName.Length > 100) return BadRequest("Account name cannot exceed 100 characters.");
+        if (dto.Institution != null && dto.Institution.Length > 100) return BadRequest("Institution name cannot exceed 100 characters.");
+        if (dto.IsAutomated && dto.Balance != 0) return BadRequest("Balance must be zero for automated accounts.");
 
         string? finalizedToken = dto.PlaidAccessToken;
         string? finalizedPlaidAccountId = dto.PlaidAccountId;
@@ -114,6 +118,7 @@ public class AccountController(IDbContextFactory<PennySaverDbContext> dbContext)
 
         if (!int.TryParse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value, out var userId))
             return Unauthorized();
+        
         using var context = await _context.CreateDbContextAsync();
 
         var exists = await context.Account
@@ -150,6 +155,7 @@ public class AccountController(IDbContextFactory<PennySaverDbContext> dbContext)
 
         if (!int.TryParse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value, out var userId))
             return Unauthorized();
+
         using var context = await _context.CreateDbContextAsync();
         
         var accountToUpdate = await context.Account
@@ -163,6 +169,7 @@ public class AccountController(IDbContextFactory<PennySaverDbContext> dbContext)
         accountToUpdate.Institution = dto.Institution!;
         accountToUpdate.Type = dto.Type;
         accountToUpdate.Balance = dto.Balance;
+        accountToUpdate.UpdatedAt = DateTime.UtcNow;
 
         await context.SaveChangesAsync();
         
@@ -174,6 +181,7 @@ public class AccountController(IDbContextFactory<PennySaverDbContext> dbContext)
     {
         if (!int.TryParse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value, out var userId))
             return Unauthorized();
+        
         using var context = await _context.CreateDbContextAsync();
         
         var rowsAffected = await context.Account

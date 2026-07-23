@@ -11,3 +11,6 @@ global using PennySaver.Tests.Data;
 global using Microsoft.Extensions.Options;
 global using Microsoft.AspNetCore.Routing;
 global using PennySaver.API.Services;
+global using PennySaver.API.Dtos;
+global using PennySaver.API.Extensions;
+global using Microsoft.Data.Sqlite;

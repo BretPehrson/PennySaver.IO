@@ -4,81 +4,78 @@ namespace PennySaver.Tests.Controllers;
 
 public class PlaidControllerTests
 {
-    private readonly DbContextOptions<PennySaverDbContext> _context;
+    private readonly IDbContextFactory<PennySaverDbContext> _context;
     private readonly Mock<IBankSyncService> _mockPlaidClient;
 
     public PlaidControllerTests()
     {
-        _context = new DbContextOptionsBuilder<PennySaverDbContext>()
-            .UseInMemoryDatabase(databaseName: Guid.NewGuid().ToString())
-            .Options;
-
+        _context = TestDbContextFactory.Create();
         _mockPlaidClient = new Mock<IBankSyncService>();
     }
 
     [Fact]
     public async Task RefreshUserBalancesAsync_ShouldSkipPlaidCall_WhenBalancesAreFresh()
     {
-        using var context = new PennySaverDbContext(_context);
-        var userId = 1;
-        DateTime staleTime = DateTime.UtcNow.AddHours(-7);
-        context.Account.Add(new Account
+        var freshTime = DateTime.UtcNow.AddMinutes(-7);
+        int userId = 101;
+        using (var seedContext = await _context.CreateDbContextAsync())
         {
-            Id = 101,
-            UserId = userId,
-            IsAutomated = true,
-            LastSynced = staleTime,
-            PlaidAccessToken = "fake-access-token"
-        });
-        await context.SaveChangesAsync();
+            seedContext.User.Add(new User { UserId = userId, Email = "user101@example.com", Password = "abcd1234" });
+            seedContext.Account.Add(new Account
+            {
+                Id = 1,
+                UserId = userId,
+                IsAutomated = true,
+                LastSynced = freshTime,
+                PlaidAccessToken = "fake-access-token"
+            });
+            await seedContext.SaveChangesAsync();
+        }
 
-        var mockFactory = new Mock<IDbContextFactory<PennySaverDbContext>>();
-        mockFactory.Setup(f => f.CreateDbContextAsync(default))
-            .ReturnsAsync(new PennySaverDbContext(_context));
-
-        var coordinator = new AccountSyncCoordinator(mockFactory.Object, _mockPlaidClient.Object);
+        var coordinator = new AccountSyncCoordinator(_context, _mockPlaidClient.Object);
 
         await coordinator.RefreshUserBalancesAsync(userId);
 
-        _mockPlaidClient.Verify(p => p.FetchLiveBalanceAsync("fake-access-token", It.IsAny<string>()), Times.Once);
+        _mockPlaidClient.Verify(p => p.FetchLiveBalanceAsync("fake-access-token", It.IsAny<string>()), Times.Never);
 
-        using var verifyContext = new PennySaverDbContext(_context);
-        var account = await verifyContext.Account.FindAsync(101);
+        using var verifyContext = await _context.CreateDbContextAsync();
+        var account = await verifyContext.Account.FindAsync(1);
 
         Assert.NotNull(account);
-        Assert.True(account.LastSynced > staleTime);
+        Assert.Equal(freshTime, account.LastSynced);
     }
 
     [Fact]
     public async Task Refresh_ShouldCallPlaid_WhenDataIsStale()
     {
-        using var context = new PennySaverDbContext(_context);
         var userId = 1;
-        DateTime staleTime = DateTime.UtcNow.AddHours(-7);
-        context.Account.Add(new Account
+        var staleTime = DateTime.UtcNow.AddDays(-1);
+        using (var seedContext = await _context.CreateDbContextAsync())
         {
-            Id = 101,
-            UserId = userId,
-            IsAutomated = true,
-            LastSynced = staleTime,
-            PlaidAccessToken = "fake-access-token"
-        });
-        await context.SaveChangesAsync();
+            seedContext.User.Add(new User { UserId = userId, Email = "user1@example.com", Password = "abcd1234" });
 
-        _mockPlaidClient.Setup(p => p.FetchLiveBalanceAsync("fake-access-token", It.IsAny<string>()));
+            seedContext.Account.Add(new Account
+            {
+                Id = 102,
+                UserId = userId,
+                IsAutomated = true,
+                LastSynced = staleTime,
+                PlaidAccessToken = "fake-access-token"
+            });
+            await seedContext.SaveChangesAsync();
+        }
 
-        var mockFactory = new Mock<IDbContextFactory<PennySaverDbContext>>();
-        mockFactory.Setup(f => f.CreateDbContextAsync(default))
-            .ReturnsAsync(new PennySaverDbContext(_context));
+        _mockPlaidClient.Setup(p => p.FetchLiveBalanceAsync("fake-access-token", It.IsAny<string>()))
+            .ReturnsAsync((150.75m, "mock-institution-id"));
 
-        var coordinator = new AccountSyncCoordinator(mockFactory.Object, _mockPlaidClient.Object);
+        var coordinator = new AccountSyncCoordinator(_context, _mockPlaidClient.Object);
 
         await coordinator.RefreshUserBalancesAsync(userId);
 
         _mockPlaidClient.Verify(p => p.FetchLiveBalanceAsync("fake-access-token", It.IsAny<string>()), Times.Once);
 
-        using var verifyContext = new PennySaverDbContext(_context);
-        var account = await verifyContext.Account.FindAsync(101);
+        using var verifyContext = await _context.CreateDbContextAsync();
+        var account = await verifyContext.Account.FindAsync(102);
 
         Assert.NotNull(account);
         Assert.True(account.LastSynced > staleTime);

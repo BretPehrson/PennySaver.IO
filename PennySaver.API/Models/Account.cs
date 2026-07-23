@@ -35,6 +35,8 @@ public class Account
     [RegularExpression(@"^\d+(\.\d{1,2})?$", ErrorMessage = "Balance can only have 2 decimal places.")]
     public decimal Balance { get; set; } = 0.00m;
 
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
     public DateTime? DeletedAt { get; set; } = null;
 
     // Foreign Key Relationships

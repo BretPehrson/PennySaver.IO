@@ -517,10 +517,6 @@ public class AccountControllerTests
         Assert.IsType<UnauthorizedResult>(result);
     }
 
-    #endregion
-
-    #region Plaid Access Token Handling Tests
-
     [Fact]
     public async Task Delete_Fails_WhenUserIsAuthenticatedButUserIdClaimIsMissing()
     {
@@ -537,6 +533,10 @@ public class AccountControllerTests
         var result = await controller.Delete(1);
         Assert.IsType<UnauthorizedResult>(result);
     }
+
+    #endregion
+
+    #region Plaid Access Token Handling Tests
 
     [Fact]
     public async Task GetById_DoesNotExposePlaidAccessToken()
@@ -628,7 +628,7 @@ public class AccountControllerTests
             AccountName = "Automated Account",
             Institution = "Test Bank",
             Type = Account.AccountType.Checking,
-            Balance = 100.00m,
+            Balance = 0m,
             IsAutomated = true,
             PlaidAccessToken = "sensitive_token_value"
         };

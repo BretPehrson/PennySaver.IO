@@ -25,4 +25,6 @@ public class UserInfo
     public int UserId { get; set; }
     [ForeignKey("UserId")]
     public User User { get; set; } = null!;
+    public bool IsActive { get; set; } = true;
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 }

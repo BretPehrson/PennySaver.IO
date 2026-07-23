@@ -13,10 +13,15 @@ public class User
     [MinLength(6)]
     [MaxLength(100)]
     public string Password { get; set; } = string.Empty;
+
+    public bool IsEmailVerified { get; set; } = false;
+
+    public bool IsActive { get; set; } = true;
     
-    public DateTime CreatedAt { get; set; }
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
     public List<RefreshToken> RefreshTokens { get; set; } = new();
 
     public UserInfo? Profile { get; set; }
+    
 }
