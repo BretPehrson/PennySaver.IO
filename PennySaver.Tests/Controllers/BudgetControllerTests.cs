@@ -370,7 +370,7 @@ public class BudgetControllerTests
         var result = await controller.Create(incomingPayLoad);
         var actionResult = Assert.IsType<ActionResult<BudgetResponseDto>>(result);
         var badRequestResult = Assert.IsType<BadRequestObjectResult>(actionResult.Result);
-        Assert.Equal("A budget for this category and month already exists.", badRequestResult.Value);
+        Assert.Equal("A budget with this name already exists.", badRequestResult.Value);
     }
 
     #endregion

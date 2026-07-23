@@ -7,15 +7,15 @@ public class BudgetController(IDbContextFactory<PennySaverDbContext> dbContext) 
 {
     private readonly IDbContextFactory<PennySaverDbContext> _context = dbContext;
 
-    private int GetCurrentUserId() =>
-        int.TryParse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value, out var userId) 
-        ? userId 
-        : throw new UnauthorizedAccessException();
+    private int? GetCurrentUserId() =>
+        int.TryParse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value, out var userId)
+            ? userId : null;
 
     [HttpGet]
     public async Task<ActionResult<IEnumerable<BudgetResponseDto>>> GetAll()
     {
-        if (!int.TryParse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value, out var userId))
+        var userId = GetCurrentUserId();
+        if (userId == null)
             return Unauthorized();
 
         using var context = await _context.CreateDbContextAsync();
@@ -23,7 +23,7 @@ public class BudgetController(IDbContextFactory<PennySaverDbContext> dbContext) 
         var budgetsInDb = await context.Budget
             .Include(b => b.Category)
             .Where(b => 
-                b.UserId == userId 
+                b.UserId == userId.Value 
                 && b.IsActive)
             .ToListAsync();
 
@@ -37,7 +37,8 @@ public class BudgetController(IDbContextFactory<PennySaverDbContext> dbContext) 
     [HttpGet("{id}", Name = "GetById")]
     public async Task<ActionResult<BudgetResponseDto>> GetById(int id)
     {
-        if (!int.TryParse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value, out var userId))
+        var userId = GetCurrentUserId();
+        if (userId == null)
             return Unauthorized();
 
         using var context = await _context.CreateDbContextAsync();
@@ -46,7 +47,7 @@ public class BudgetController(IDbContextFactory<PennySaverDbContext> dbContext) 
             .Include(b => b.Category)
             .FirstOrDefaultAsync(b => 
                 b.Id == id 
-                && b.UserId == userId 
+                && b.UserId == userId.Value 
                 && b.IsActive);
 
         if (budget == null) return NotFound();
@@ -66,7 +67,8 @@ public class BudgetController(IDbContextFactory<PennySaverDbContext> dbContext) 
         if (dto.Month < 1 || dto.Month > 12) return BadRequest("Month must be between 1 and 12.");
         if (dto.Year < DateTime.Now.Year) return BadRequest("Year must be the current year or later.");
 
-        if (!int.TryParse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value, out var userId))
+        var userId = GetCurrentUserId();
+        if (userId == null)
             return Unauthorized();
 
         using var context = await _context.CreateDbContextAsync();
@@ -74,20 +76,20 @@ public class BudgetController(IDbContextFactory<PennySaverDbContext> dbContext) 
         var exists = await context.Budget
             .AnyAsync(b => 
                 b.Name == dto.Name 
-                && b.UserId == userId 
+                && b.UserId == userId.Value 
                 && b.IsActive);
-        if (exists) return BadRequest("A budget for this category and month already exists.");
+        if (exists) return BadRequest("A budget with this name already exists.");
 
         var categoryOwned = await context.Category
             .AnyAsync(c => 
                 c.Id == dto.CategoryId 
-                && c.UserId == userId 
+                && c.UserId == userId.Value 
                 && c.IsActive == true);
         if (!categoryOwned) return BadRequest("Invalid category assignment.");
 
         var budget = new Budget
         {
-            UserId = userId,
+            UserId = userId.Value,
             Name = dto.Name,
             TargetAmount = dto.TargetAmount,
             StartDate = dto.StartDate,
@@ -114,7 +116,8 @@ public class BudgetController(IDbContextFactory<PennySaverDbContext> dbContext) 
         if (dto.Name.Length > 100) return BadRequest("Name cannot exceed 100 characters.");
         if (dto.CategoryId <= 0) return BadRequest("Valid category ID is required.");
 
-        if (!int.TryParse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value, out var userId))
+        var userId = GetCurrentUserId();
+        if (userId == null)
             return Unauthorized();
             
         using var context = await _context.CreateDbContextAsync();
@@ -122,14 +125,14 @@ public class BudgetController(IDbContextFactory<PennySaverDbContext> dbContext) 
         var existing = await context.Budget
             .FirstOrDefaultAsync(b => 
                 b.Id == id 
-                && b.UserId == userId
+                && b.UserId == userId.Value 
                 && b.IsActive == true);
         if (existing == null) return NotFound();
 
         var categoryOwned = await context.Category
             .AnyAsync(c => 
                 c.Id == dto.CategoryId 
-                && c.UserId == userId 
+                && c.UserId == userId.Value 
                 && c.IsActive == true);
         if (!categoryOwned) return BadRequest("Invalid category assignment.");
 
@@ -148,7 +151,8 @@ public class BudgetController(IDbContextFactory<PennySaverDbContext> dbContext) 
     [HttpDelete("{id}")]
     public async Task<IActionResult> Delete(int id)
     {
-        if (!int.TryParse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value, out var userId))
+        var userId = GetCurrentUserId();
+        if (userId == null)
             return Unauthorized();
             
         using var context = await _context.CreateDbContextAsync();
@@ -156,7 +160,7 @@ public class BudgetController(IDbContextFactory<PennySaverDbContext> dbContext) 
         var rowsAffected = await context.Budget
             .Where(b => 
                 b.Id == id 
-                && b.UserId == userId 
+                && b.UserId == userId.Value 
                 && b.IsActive)
             .ExecuteUpdateAsync(b => b.SetProperty(p => p.IsActive, false)
                                       .SetProperty(p => p.DeletedAt, DateTime.UtcNow));

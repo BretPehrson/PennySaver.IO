@@ -7,22 +7,22 @@ public class AccountController(IDbContextFactory<PennySaverDbContext> dbContext)
 {
     private readonly IDbContextFactory<PennySaverDbContext> _context = dbContext;
 
-    private int GetCurrentUserId() =>
-        int.TryParse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value, out var userId) 
-        ? userId 
-        : throw new UnauthorizedAccessException();
+    private int? GetCurrentUserId() =>
+        int.TryParse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value, out var userId)
+            ? userId : null;
 
     [HttpGet]
     public async Task<ActionResult<IEnumerable<AccountResponseDto>>> GetAll()
     {
-        if (!int.TryParse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value, out var userId))
+        var userId = GetCurrentUserId();
+        if (userId == null)
             return Unauthorized();
 
         using var context = await _context.CreateDbContextAsync();
 
         var accountsInDb = await context.Account
             .Where(a => 
-                a.UserId == userId 
+                a.UserId == userId.Value 
                 && a.DeletedAt == null)
             .ToListAsync();
 
@@ -36,7 +36,8 @@ public class AccountController(IDbContextFactory<PennySaverDbContext> dbContext)
     [HttpGet("{id}", Name = "GetById")]
     public async Task<ActionResult<AccountResponseDto>> GetById(int id)
     {
-        if (!int.TryParse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value, out var userId))
+        var userId = GetCurrentUserId();
+        if (userId == null)
             return Unauthorized();
 
         using var context = await _context.CreateDbContextAsync();
@@ -44,7 +45,7 @@ public class AccountController(IDbContextFactory<PennySaverDbContext> dbContext)
         var account = await context.Account
             .FirstOrDefaultAsync(a => 
                 a.Id == id 
-                && a.UserId == userId 
+                && a.UserId == userId.Value 
                 && a.DeletedAt == null);
 
         if (account == null) return NotFound();
@@ -55,12 +56,13 @@ public class AccountController(IDbContextFactory<PennySaverDbContext> dbContext)
     [HttpPost("refresh")]
     public async Task<IActionResult> RefreshBalance([FromServices] IAccountSyncCoordinator SyncCoordinator)
     {
-        if (!int.TryParse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value, out var userId))
+        var userId = GetCurrentUserId();
+        if (userId == null)
             return Unauthorized();
         
         try
         {
-            await SyncCoordinator.RefreshUserBalancesAsync(userId);
+            await SyncCoordinator.RefreshUserBalancesAsync(userId.Value);
             return Ok("Automated account balances refreshed successfully.");
         }
         catch (Exception ex)
@@ -116,7 +118,8 @@ public class AccountController(IDbContextFactory<PennySaverDbContext> dbContext)
             }
         }
 
-        if (!int.TryParse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value, out var userId))
+        var userId = GetCurrentUserId();
+        if (userId == null)
             return Unauthorized();
         
         using var context = await _context.CreateDbContextAsync();
@@ -124,12 +127,12 @@ public class AccountController(IDbContextFactory<PennySaverDbContext> dbContext)
         var exists = await context.Account
             .AnyAsync(a => 
                 a.AccountName == dto.AccountName 
-                && a.UserId == userId);
+                && a.UserId == userId.Value);
         if (exists) return BadRequest("An account with the same name already exists for this user.");
 
         var newAccount = new Account
         {
-            UserId = userId,
+            UserId = userId.Value,
             AccountName = dto.AccountName,
             Institution = dto.Institution!,
             Type = dto.Type,
@@ -153,7 +156,8 @@ public class AccountController(IDbContextFactory<PennySaverDbContext> dbContext)
         if (dto.Balance < 0) return BadRequest("Balance cannot be negative.");
         if (dto.Institution != null && dto.Institution.Length > 100) return BadRequest("Institution name cannot exceed 100 characters.");
 
-        if (!int.TryParse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value, out var userId))
+        var userId = GetCurrentUserId();
+        if (userId == null)
             return Unauthorized();
 
         using var context = await _context.CreateDbContextAsync();
@@ -161,7 +165,7 @@ public class AccountController(IDbContextFactory<PennySaverDbContext> dbContext)
         var accountToUpdate = await context.Account
             .FirstOrDefaultAsync(a => 
                 a.Id == id 
-                && a.UserId == userId 
+                && a.UserId == userId.Value 
                 && a.DeletedAt == null);
         if (accountToUpdate == null) return NotFound();
 
@@ -179,7 +183,8 @@ public class AccountController(IDbContextFactory<PennySaverDbContext> dbContext)
     [HttpDelete("{id}")]
     public async Task<IActionResult> Delete(int id)
     {
-        if (!int.TryParse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value, out var userId))
+        var userId = GetCurrentUserId();
+        if (userId == null)
             return Unauthorized();
         
         using var context = await _context.CreateDbContextAsync();
@@ -187,7 +192,7 @@ public class AccountController(IDbContextFactory<PennySaverDbContext> dbContext)
         var rowsAffected = await context.Account
             .Where(a => 
                 a.Id == id 
-                && a.UserId == userId 
+                && a.UserId == userId.Value 
                 && a.DeletedAt == null)
             .ExecuteUpdateAsync(a => a.SetProperty(p => p.DeletedAt, DateTime.UtcNow));
 
