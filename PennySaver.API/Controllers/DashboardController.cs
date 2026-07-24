@@ -13,7 +13,7 @@ public class DashboardController(IDbContextFactory<PennySaverDbContext> context)
         : throw new UnauthorizedAccessException();
 
     [HttpGet("overview")]
-    public async Task<ActionResult<DashboardDto>> GetOverview()
+    public async Task<ActionResult> GetOverview()
     {
         var userId = GetCurrentUserId();
         using var context = await _context.CreateDbContextAsync();
