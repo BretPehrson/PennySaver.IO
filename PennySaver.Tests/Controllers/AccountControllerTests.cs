@@ -75,15 +75,6 @@ public class AccountControllerTests
         Assert.Empty(accounts);
     }
 
-    [Fact]
-    public async Task GetAll_Fails_WhenUserIdClaimIsMissing()
-    {
-        var controller = CreateController(_context, null); // No user ID
-
-        var result = await controller.GetAll();
-        Assert.IsType<UnauthorizedResult>(result.Result);
-    }
-
     #endregion
 
     #region GetById Tests

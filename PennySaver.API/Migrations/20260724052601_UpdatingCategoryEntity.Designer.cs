@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using PennySaver.API.Data;
 
@@ -11,9 +12,11 @@ using PennySaver.API.Data;
 namespace PennySaver.API.Migrations
 {
     [DbContext(typeof(PennySaverDbContext))]
-    partial class PennySaverDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260724052601_UpdatingCategoryEntity")]
+    partial class UpdatingCategoryEntity
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder

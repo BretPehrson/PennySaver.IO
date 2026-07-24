@@ -29,7 +29,10 @@ public static class MappingExtensions
     public static CategoryResponseDto ToDto(this Category category) => new()
     {
         Id = category.Id,
-        Name = category.Name
+        Name = category.Name,
+        Description = category.Description,
+        ColorCode = category.ColorCode,
+        IsActive = category.IsActive
     };
 
     public static TransactionResponseDto ToDto(this Transaction transaction) => new()
