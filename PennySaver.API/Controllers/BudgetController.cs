@@ -34,7 +34,7 @@ public class BudgetController(IDbContextFactory<PennySaverDbContext> dbContext) 
         return budgets;
     }
 
-    [HttpGet("{id}", Name = "GetById")]
+    [HttpGet("{id}", Name = "GetBudgetById")]
     public async Task<ActionResult<BudgetResponseDto>> GetById(int id)
     {
         var userId = GetCurrentUserId();
@@ -103,7 +103,7 @@ public class BudgetController(IDbContextFactory<PennySaverDbContext> dbContext) 
         context.Budget.Add(budget);
         await context.SaveChangesAsync();
         
-        return CreatedAtRoute("GetById", new { id = budget.Id }, budget.ToDto());
+        return CreatedAtRoute("GetBudgetById", new { id = budget.Id }, budget.ToDto());
     }
     
     [HttpPut("{id}")]

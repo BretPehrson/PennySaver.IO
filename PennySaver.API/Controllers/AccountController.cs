@@ -33,7 +33,7 @@ public class AccountController(IDbContextFactory<PennySaverDbContext> dbContext)
         return accounts;
     }
 
-    [HttpGet("{id}", Name = "GetById")]
+    [HttpGet("{id}", Name = "GetAccountById")]
     public async Task<ActionResult<AccountResponseDto>> GetById(int id)
     {
         var userId = GetCurrentUserId();
@@ -145,7 +145,7 @@ public class AccountController(IDbContextFactory<PennySaverDbContext> dbContext)
         context.Account.Add(newAccount);
         await context.SaveChangesAsync();
         
-        return CreatedAtRoute("GetById", new { id = newAccount.Id }, newAccount.ToDto());
+        return CreatedAtRoute("GetAccountById", new { id = newAccount.Id }, newAccount.ToDto());
     }
 
     [HttpPut("{id}")]
