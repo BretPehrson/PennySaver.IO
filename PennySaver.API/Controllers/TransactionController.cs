@@ -13,7 +13,7 @@ public class TransactionController(IDbContextFactory<PennySaverDbContext> dbCont
         : throw new UnauthorizedAccessException();
 
     [HttpGet]
-    public async Task<IActionResult> GetAll([FromQuery] TransactionStatus? status)
+    public async Task<ActionResult<IEnumerable<TransactionResponseDto>>> GetAll([FromQuery] TransactionStatus? status)
     {
         int userId = GetCurrentUserId();
         using var context = await _context.CreateDbContextAsync();
@@ -29,13 +29,14 @@ public class TransactionController(IDbContextFactory<PennySaverDbContext> dbCont
         else
             query = query.Where(t => t.Status != TransactionStatus.Voided);
 
-        var transactions = await query.ToListAsync();
+        var transactions = await query.ToListAsync()
+            .ContinueWith(t => t.Result.Select(tr => tr.ToDto()).ToList());
 
-        return Ok(transactions);
+        return transactions;
     }
 
-    [HttpGet("{id}")]
-    public async Task<IActionResult> GetById(int id)
+    [HttpGet("{id}", Name = "GetTransactionById")]
+    public async Task<ActionResult<TransactionResponseDto>> GetById(int id)
     {
         int userId = GetCurrentUserId();
         using var context = await _context.CreateDbContextAsync();
@@ -46,11 +47,11 @@ public class TransactionController(IDbContextFactory<PennySaverDbContext> dbCont
             .FirstOrDefaultAsync(t => t.Id == id && t.Account!.UserId == userId);
         if (transaction == null) return NotFound();
         
-        return Ok(transaction);
+        return Ok(transaction.ToDto());
     }
     
     [HttpPost]
-    public async Task<IActionResult> Create([FromBody] Transaction transaction)
+    public async Task<ActionResult<TransactionResponseDto>> Create([FromBody] TransactionCreateDto transaction)
     {
         if (!ModelState.IsValid) return BadRequest(ModelState);
 
@@ -63,14 +64,23 @@ public class TransactionController(IDbContextFactory<PennySaverDbContext> dbCont
         var categoryOwned = await context.Category.AnyAsync(c => c.Id == transaction.CategoryId && c.UserId == userId);
         if (!accountOwned || !categoryOwned) return BadRequest("Invalid account or category assignment.");
 
-        context.Transaction.Add(transaction);
+        var newTransaction = new Transaction
+        {
+            AccountId = transaction.AccountId,
+            Amount = transaction.Amount,
+            Description = transaction.Description,
+            Status = transaction.Status,
+            CategoryId = transaction.CategoryId
+        };
+
+        context.Transaction.Add(newTransaction);
         await context.SaveChangesAsync();
         
-        return Ok(transaction);
+        return CreatedAtRoute("GetTransactionById", new { id = newTransaction.Id }, newTransaction.ToDto());
     }
     
     [HttpPut("{id}")]
-    public async Task<IActionResult> Update(int id, [FromBody] Transaction transaction)
+    public async Task<ActionResult<TransactionResponseDto>> Update(int id, [FromBody] TransactionCreateDto dto)
     {
         int userId = GetCurrentUserId();
         using var context = await _context.CreateDbContextAsync();
@@ -82,19 +92,20 @@ public class TransactionController(IDbContextFactory<PennySaverDbContext> dbCont
         if (existing == null) return NotFound();
         if (existing.Status == TransactionStatus.Voided) return BadRequest("Cannot update a voided transaction.");
 
-        if (transaction.Account == null && transaction.AccountId != 0)
+        if (existing.AccountId != dto.AccountId)
         {
-            transaction.Account = await context.Account.FirstOrDefaultAsync(a => a.Id == transaction.AccountId);
-            if (transaction.Account == null) return BadRequest("Account not found.");
+            var targetAccount = await context.Account
+                .AnyAsync(a => a.Id == dto.AccountId && a.UserId == userId);
+            
+            if (!targetAccount) return BadRequest("Account not found.");
+
+            existing.AccountId = dto.AccountId;
         }
 
-        if (userId != transaction.Account!.UserId)
-            return BadRequest("Cannot update a transaction that belongs to another user.");
-
-        existing.Amount = transaction.Amount;
-        existing.Description = transaction.Description;
-        existing.Status = transaction.Status;
-        existing.CategoryId = transaction.CategoryId;
+        existing.Amount = dto.Amount;
+        existing.Description = dto.Description;
+        existing.Status = dto.Status;
+        existing.CategoryId = dto.CategoryId;
 
         await context.SaveChangesAsync();
         

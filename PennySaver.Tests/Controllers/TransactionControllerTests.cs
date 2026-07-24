@@ -6,7 +6,7 @@ public class TransactionControllerTests
 
     public TransactionControllerTests()
     {
-        _context = TestDbContextFactory.Create(Guid.NewGuid().ToString());
+        _context = TestDbContextFactory.Create();
     }
 
     private static TransactionController CreateController(IDbContextFactory<PennySaverDbContext> sharedContext, int? userId = null) => new(sharedContext)
@@ -14,45 +14,17 @@ public class TransactionControllerTests
         ControllerContext = TestAuthHelper.GetControllerContext(userId)
     };
 
-    [Fact]
-    public async Task Create_ForcesOwnershipToLoggedInUser()
-    {
-        // Seed a category and account that belongs to our logged-in user (111)
-        using (var seedContext = _context.CreateDbContext())
-        {
-            seedContext.Category.Add(new Category { Id = 1, UserId = 111, CategoryName = "Food" });
-            seedContext.Account.Add(new Account { Id = 1, UserId = 111, AccountName = "Checking" });
-            await seedContext.SaveChangesAsync();
-        }
-
-        var controller = CreateController(_context, 111);
-
-        var incomingPayLoad = new Transaction
-        {
-            Id = 5,
-            AccountId = 1,
-            CategoryId = 1,
-            Amount = 15,
-            Description = "Lunch",
-            Status = TransactionStatus.Completed
-        };
-
-        var result = await controller.Create(incomingPayLoad);
-
-        var okResult = Assert.IsType<OkObjectResult>(result);
-        var createdTransaction = Assert.IsType<Transaction>(okResult.Value);
-
-        Assert.Equal(1, createdTransaction.AccountId);
-        Assert.Equal(1, createdTransaction.CategoryId);
-    }
+    #region GetAll Tests
 
     [Fact]
     public async Task GetAll_ReturnsOkResult_WithTransactions()
     {
         using (var seedContext = _context.CreateDbContext())
         {
+            seedContext.User.Add(new User { UserId = 111, Email = "user111@example.com", Password = "abcd1234" });
+
             seedContext.Account.Add(new Account { Id = 1, UserId = 111, AccountName = "Checking" });
-            seedContext.Category.Add(new Category { Id = 1, UserId = 111, CategoryName = "Food" });
+            seedContext.Category.Add(new Category { Id = 1, UserId = 111, Name = "Food" });
             seedContext.Transaction.AddRange(
                 new Transaction { Id = 1, AccountId = 1, CategoryId = 1, Amount = 10, Description = "Groceries", Status = TransactionStatus.Completed },
                 new Transaction { Id = 2, AccountId = 1, CategoryId = 1, Amount = 20, Description = "Dining Out", Status = TransactionStatus.Completed }
@@ -63,9 +35,12 @@ public class TransactionControllerTests
         var controller = CreateController(_context, 111);
 
         var result = await controller.GetAll(null);
-        var okResult = Assert.IsType<OkObjectResult>(result);
-        var transactions = Assert.IsType<List<Transaction>>(okResult.Value);
+
+        var okResult = Assert.IsType<ActionResult<IEnumerable<TransactionResponseDto>>>(result);
+        var transactions = Assert.IsType<List<TransactionResponseDto>>(okResult.Value);
         Assert.Equal(2, transactions.Count);
+        Assert.Contains(transactions, t => t.Id == 1 && t.Description == "Groceries");
+        Assert.Contains(transactions, t => t.Id == 2 && t.Description == "Dining Out");
     }
 
     [Fact]
@@ -73,8 +48,10 @@ public class TransactionControllerTests
     {
         using (var seedContext = _context.CreateDbContext())
         {
+            seedContext.User.Add(new User { UserId = 111, Email = "user111@example.com", Password = "abcd1234" });
+
             seedContext.Account.Add(new Account { Id = 1, UserId = 111, AccountName = "Checking" });
-            seedContext.Category.Add(new Category { Id = 1, UserId = 111, CategoryName = "Food" });
+            seedContext.Category.Add(new Category { Id = 1, UserId = 111, Name = "Food" });
             seedContext.Transaction.AddRange(
                 new Transaction { Id = 1, AccountId = 1, CategoryId = 1, Amount = 10, Description = "Groceries", Status = TransactionStatus.Completed },
                 new Transaction { Id = 2, AccountId = 1, CategoryId = 1, Amount = 20, Description = "Dining Out", Status = TransactionStatus.Pending },
@@ -86,8 +63,8 @@ public class TransactionControllerTests
         var controller = CreateController(_context, 111);
 
         var result = await controller.GetAll(TransactionStatus.Completed);
-        var okResult = Assert.IsType<OkObjectResult>(result);
-        var transactions = Assert.IsType<List<Transaction>>(okResult.Value);
+        var okResult = Assert.IsType<ActionResult<IEnumerable<TransactionResponseDto>>>(result);
+        var transactions = Assert.IsType<List<TransactionResponseDto>>(okResult.Value);
         Assert.Single(transactions);
         Assert.Equal(TransactionStatus.Completed, transactions[0].Status);
         Assert.Equal(1, transactions[0].Id);
@@ -98,8 +75,10 @@ public class TransactionControllerTests
     {
         using (var seedContext = _context.CreateDbContext())
         {
+            seedContext.User.Add(new User { UserId = 111, Email = "user111@example.com", Password = "abcd1234" });
+
             seedContext.Account.Add(new Account { Id = 1, UserId = 111, AccountName = "Checking" });
-            seedContext.Category.Add(new Category { Id = 1, UserId = 111, CategoryName = "Food" });
+            seedContext.Category.Add(new Category { Id = 1, UserId = 111, Name = "Food" });
             seedContext.Transaction.AddRange(
                 new Transaction { Id = 1, AccountId = 1, CategoryId = 1, Amount = 10, Description = "Groceries", Status = TransactionStatus.Completed },
                 new Transaction { Id = 2, AccountId = 1, CategoryId = 1, Amount = 20, Description = "Dining Out", Status = TransactionStatus.Pending },
@@ -111,8 +90,8 @@ public class TransactionControllerTests
         var controller = CreateController(_context, 111);
 
         var result = await controller.GetAll(TransactionStatus.Pending);
-        var okResult = Assert.IsType<OkObjectResult>(result);
-        var transactions = Assert.IsType<List<Transaction>>(okResult.Value);
+        var okResult = Assert.IsType<ActionResult<IEnumerable<TransactionResponseDto>>>(result);
+        var transactions = Assert.IsType<List<TransactionResponseDto>>(okResult.Value);
         Assert.Single(transactions);
         Assert.Equal(TransactionStatus.Pending, transactions[0].Status);
         Assert.Equal(2, transactions[0].Id);
@@ -123,8 +102,10 @@ public class TransactionControllerTests
     {
         using (var seedContext = _context.CreateDbContext())
         {
+            seedContext.User.Add(new User { UserId = 111, Email = "user111@example.com", Password = "abcd1234" });
+
             seedContext.Account.Add(new Account { Id = 1, UserId = 111, AccountName = "Checking" });
-            seedContext.Category.Add(new Category { Id = 1, UserId = 111, CategoryName = "Food" });
+            seedContext.Category.Add(new Category { Id = 1, UserId = 111, Name = "Food" });
             seedContext.Transaction.AddRange(
                 new Transaction { Id = 1, AccountId = 1, CategoryId = 1, Amount = 10, Description = "Groceries", Status = TransactionStatus.Completed },
                 new Transaction { Id = 2, AccountId = 1, CategoryId = 1, Amount = 20, Description = "Dining Out", Status = TransactionStatus.Pending },
@@ -136,19 +117,25 @@ public class TransactionControllerTests
         var controller = CreateController(_context, 111);
 
         var result = await controller.GetAll(null);
-        var okResult = Assert.IsType<OkObjectResult>(result);
-        var transactions = Assert.IsType<List<Transaction>>(okResult.Value);
+        var okResult = Assert.IsType<ActionResult<IEnumerable<TransactionResponseDto>>>(result);
+        var transactions = Assert.IsType<List<TransactionResponseDto>>(okResult.Value);
 
         Assert.Equal(2, transactions.Count);
     }
+
+    #endregion
+
+    #region GetById Tests
 
     [Fact]
     public async Task GetById_ReturnsOkResult_WithTransaction()
     {
         using (var seedContext = _context.CreateDbContext())
         {
+            seedContext.User.Add(new User { UserId = 111, Email = "user111@example.com", Password = "abcd1234" });
+
             seedContext.Account.Add(new Account { Id = 1, UserId = 111, AccountName = "Checking" });
-            seedContext.Category.Add(new Category { Id = 1, UserId = 111, CategoryName = "Food" });
+            seedContext.Category.Add(new Category { Id = 1, UserId = 111, Name = "Food" });
             seedContext.Transaction.Add(new Transaction { Id = 1, AccountId = 1, CategoryId = 1, Amount = 10, Description = "Groceries", Status = TransactionStatus.Completed });
             await seedContext.SaveChangesAsync();
         }
@@ -156,12 +143,13 @@ public class TransactionControllerTests
         var controller = CreateController(_context, 111);
 
         var result = await controller.GetById(1);
-        var okResult = Assert.IsType<OkObjectResult>(result);
-        var transaction = Assert.IsType<Transaction>(okResult.Value);
+        var okResult = Assert.IsType<ActionResult<TransactionResponseDto>>(result);
+        var transaction = Assert.IsType<OkObjectResult>(okResult.Result);
+        var createdTransaction = Assert.IsType<TransactionResponseDto>(transaction.Value);
 
-        Assert.Equal(1, transaction.Id);
-        Assert.Equal(1, transaction.AccountId);
-        Assert.Equal(1, transaction.CategoryId);
+        Assert.Equal(1, createdTransaction.Id);
+        Assert.Equal(1, createdTransaction.AccountId);
+        Assert.Equal(1, createdTransaction.CategoryId);
     }
 
     [Fact]
@@ -170,7 +158,10 @@ public class TransactionControllerTests
         var controller = CreateController(_context, 111);
 
         var result = await controller.GetById(999);
-        Assert.IsType<NotFoundResult>(result);
+        var notFoundResult = Assert.IsType<ActionResult<TransactionResponseDto>>(result);
+        var notFound = Assert.IsType<NotFoundResult>(notFoundResult.Result);
+
+        Assert.IsType<NotFoundResult>(notFound);
     }
 
     [Fact]
@@ -178,8 +169,10 @@ public class TransactionControllerTests
     {
         using (var seedContext = _context.CreateDbContext())
         {
+            seedContext.User.Add(new User { UserId = 111, Email = "user111@example.com", Password = "abcd1234" });
+
             seedContext.Account.Add(new Account { Id = 1, UserId = 111, AccountName = "Checking" });
-            seedContext.Category.Add(new Category { Id = 1, UserId = 111, CategoryName = "Food" });
+            seedContext.Category.Add(new Category { Id = 1, UserId = 111, Name = "Food" });
             seedContext.Transaction.Add(new Transaction { Id = 1, AccountId = 1, CategoryId = 1, Amount = 10, Description = "Groceries", Status = TransactionStatus.Completed });
             await seedContext.SaveChangesAsync();
         }
@@ -187,16 +180,63 @@ public class TransactionControllerTests
         var controller = CreateController(_context, 999); // Different user
 
         var result = await controller.GetById(1);
-        Assert.IsType<NotFoundResult>(result);
+        var notFoundResult = Assert.IsType<ActionResult<TransactionResponseDto>>(result);
+        var notFound = Assert.IsType<NotFoundResult>(notFoundResult.Result);
+
+        Assert.IsType<NotFoundResult>(notFound);
     }
 
+    #endregion
+
+    #region Create Tests
+
+    [Fact]
+    public async Task Create_Succeeds_ForValidTransaction()
+    {
+        using (var seedContext = _context.CreateDbContext())
+        {
+            seedContext.User.Add(new User { UserId = 111, Email = "user111@example.com", Password = "abcd1234" });
+
+            seedContext.Account.Add(new Account { Id = 1, UserId = 111, AccountName = "Checking" });
+            seedContext.Category.Add(new Category { Id = 1, UserId = 111, Name = "Food" });
+            await seedContext.SaveChangesAsync();
+        }
+
+        var controller = CreateController(_context, 111);
+
+        var incomingPayLoad = new TransactionCreateDto
+        {
+            Amount = 100,
+            Description = "Valid Transaction",
+            Status = TransactionStatus.Completed,
+            AccountId = 1,
+            CategoryId = 1
+        };
+
+        var result = await controller.Create(incomingPayLoad);
+
+        var okResult = Assert.IsType<ActionResult<TransactionResponseDto>>(result);
+        var createdResult = Assert.IsType<CreatedAtRouteResult>(okResult.Result);
+        var createdTransaction = Assert.IsType<TransactionResponseDto>(createdResult.Value);
+
+        Assert.Equal(100, createdTransaction.Amount);
+        Assert.Equal("Valid Transaction", createdTransaction.Description);
+        Assert.Equal(TransactionStatus.Completed, createdTransaction.Status);
+        Assert.Equal(1, createdTransaction.AccountId);
+        Assert.Equal(1, createdTransaction.CategoryId);
+    }
 
     [Fact]
     public async Task Create_Fails_WhenAccountOrCategoryBelongsToAnotherUser()
     {
         using (var seedContext = _context.CreateDbContext())
         {
-            seedContext.Category.Add(new Category { Id = 10, UserId = 111, CategoryName = "Groceries" });
+            seedContext.User.AddRange(
+                new User { UserId = 111, Email = "user111@example.com", Password = "abcd1234" },
+                new User { UserId = 999, Email = "user999@example.com", Password = "abcd1234" }
+                );
+
+            seedContext.Category.Add(new Category { Id = 10, UserId = 111, Name = "Groceries" });
             seedContext.Account.Add(new Account { Id = 20, UserId = 999, AccountName = "Malicious Checking" });
             await seedContext.SaveChangesAsync();
         }
@@ -204,9 +244,8 @@ public class TransactionControllerTests
         var controller = CreateController(_context, 111);
 
 
-        var incomingPayLoad = new Transaction
+        var incomingPayLoad = new TransactionCreateDto
         {
-            Id = 1,
             Amount = 100,
             Description = "Hacked Transaction",
             Status = TransactionStatus.Completed,
@@ -216,129 +255,184 @@ public class TransactionControllerTests
 
         var result = await controller.Create(incomingPayLoad);
 
-        var badRequestResult = Assert.IsType<BadRequestObjectResult>(result);
-        Assert.Equal("Invalid account or category assignment.", badRequestResult.Value);
+        var badRequestResult = Assert.IsType<ActionResult<TransactionResponseDto>>(result);
+        var badRequest = Assert.IsType<BadRequestObjectResult>(badRequestResult.Result);
+        Assert.Equal("Invalid account or category assignment.", badRequest.Value);
     }
 
     [Fact]
-    public async Task Update_Fails_WhenTransactionIsVoided()
+    public async Task Create_Fails_WhenAccountBelongsToAnotherUser()
     {
         using (var seedContext = _context.CreateDbContext())
         {
-            seedContext.Account.Add(new Account { Id = 1, UserId = 111, AccountName = "Checking" });
-            seedContext.Category.Add(new Category { Id = 1, UserId = 111, CategoryName = "Food" });
-            seedContext.Transaction.Add(new Transaction { Id = 1, AccountId = 1, CategoryId = 1, Amount = 10, Description = "Groceries", Status = TransactionStatus.Voided });
+            seedContext.User.AddRange(
+                new User { UserId = 111, Email = "user111@example.com", Password = "abcd1234" },
+                new User { UserId = 999, Email = "malicious_user@example.com", Password = "abcd1234" }
+            );
+
+            seedContext.Category.Add(new Category { Id = 10, UserId = 111, Name = "Groceries" });
+            seedContext.Account.Add(new Account { Id = 20, UserId = 999, AccountName = "Malicious Checking" });
             await seedContext.SaveChangesAsync();
         }
 
         var controller = CreateController(_context, 111);
 
-        var updatePayload = new Transaction
+        var incomingPayLoad = new TransactionCreateDto
         {
-            Id = 1,
-            AccountId = 1,
-            CategoryId = 1,
-            Amount = 20,
-            Description = "Updated Description",
-            Status = TransactionStatus.Completed,
-            Account = new Account { Id = 1, UserId = 111, AccountName = "Checking" }
+            Amount = 100,
+            CreatedAt = DateTime.Now,
+            AccountId = 20, // Belongs to user 999
+            CategoryId = 10 // Belongs to user 111, but account ownership should be checked first
         };
 
-        var result = await controller.Update(1, updatePayload);
-        var badRequestResult = Assert.IsType<BadRequestObjectResult>(result);
-        Assert.Equal("Cannot update a voided transaction.", badRequestResult.Value);
+        var result = await controller.Create(incomingPayLoad);
+
+        var badRequestResult = Assert.IsType<ActionResult<TransactionResponseDto>>(result);
+        var badRequest = Assert.IsType<BadRequestObjectResult>(badRequestResult.Result);
+        Assert.Equal("Invalid account or category assignment.", badRequest.Value);
     }
 
     [Fact]
-    public async Task Update_Fails_WhenAccountIsNull()
+    public async Task Create_Fails_WhenCategoryBelongsToAnotherUser()
     {
         using (var seedContext = _context.CreateDbContext())
         {
-            seedContext.Account.Add(new Account { Id = 1, UserId = 111, AccountName = "Checking" });
-            seedContext.Category.Add(new Category { Id = 1, UserId = 111, CategoryName = "Food" });
-            seedContext.Transaction.Add(new Transaction { Id = 1, AccountId = 1, CategoryId = 1, Amount = 10, Description = "Groceries", Status = TransactionStatus.Completed });
+            seedContext.User.AddRange(
+                new User { UserId = 111, Email = "user111@example.com", Password = "abcd1234" },
+                new User { UserId = 999, Email = "malicious_user@example.com", Password = "abcd1234" }
+            );
+
+            seedContext.Category.Add(new Category { Id = 10, UserId = 999, Name = "Malicious Category" });
+            seedContext.Account.Add(new Account { Id = 20, UserId = 111, AccountName = "User 111 Account" });
             await seedContext.SaveChangesAsync();
         }
 
         var controller = CreateController(_context, 111);
 
-        var updatePayload = new Transaction
+        var incomingPayLoad = new TransactionCreateDto
         {
-            Id = 1,
+            Amount = 100,
+            AccountId = 20, // Belongs to user 111
+            CategoryId = 10 // Belongs to user 999
+        };
+
+        var result = await controller.Create(incomingPayLoad);
+
+        var badRequestResult = Assert.IsType<ActionResult<TransactionResponseDto>>(result);
+        var badRequest = Assert.IsType<BadRequestObjectResult>(badRequestResult.Result);
+        // This error comes from the TransactionController create method
+        Assert.Equal("Invalid account or category assignment.", badRequest.Value);
+    }
+
+    [Fact]
+    public async Task Create_Fails_WhenAccountDoesNotExist()
+    {
+        using (var seedContext = _context.CreateDbContext())
+        {
+            seedContext.User.Add(new User { UserId = 111, Email = "user111@example.com", Password = "abcd1234" });
+
+            seedContext.Category.Add(new Category { Id = 1, UserId = 111, Name = "Groceries" });
+            await seedContext.SaveChangesAsync();
+        }
+
+        var controller = CreateController(_context, 111);
+
+        var incomingPayLoad = new TransactionCreateDto
+        {
+            Amount = 100,
+            CreatedAt = DateTime.Now,
             AccountId = 999, // Non-existent account
-            CategoryId = 1,
-            Amount = 20,
-            Description = "Updated Description",
-            Status = TransactionStatus.Completed
+            CategoryId = 1 // Belongs to user 111
         };
 
-        var result = await controller.Update(1, updatePayload);
-        var badRequestResult = Assert.IsType<BadRequestObjectResult>(result);
-        Assert.Equal("Account not found.", badRequestResult.Value);
+        var result = await controller.Create(incomingPayLoad);
+
+        var badRequestResult = Assert.IsType<ActionResult<TransactionResponseDto>>(result);
+        var badRequest = Assert.IsType<BadRequestObjectResult>(badRequestResult.Result);
+        // This error comes from the TransactionController create method
+        Assert.Equal("Invalid account or category assignment.", badRequest.Value);
     }
 
     [Fact]
-    public async Task Update_Fails_WhenTransactionDoesNotExist()
-    {
-        var controller = CreateController(_context, 111);
-
-        var updatePayload = new Transaction
-        {
-            Id = 999,
-            AccountId = 1,
-            CategoryId = 1,
-            Amount = 20,
-            Description = "Updated Description",
-            Status = TransactionStatus.Completed
-        };
-
-        var result = await controller.Update(999, updatePayload);
-        Assert.IsType<NotFoundResult>(result);
-    }
-
-    [Fact]
-    public async Task Update_Fails_WhenTransactionBelongsToAnotherUser()
+    public async Task Create_Fails_WhenCategoryDoesNotExist()
     {
         using (var seedContext = _context.CreateDbContext())
         {
-            seedContext.Account.Add(new Account { Id = 1, UserId = 111, AccountName = "Checking" });
-            seedContext.Category.Add(new Category { Id = 1, UserId = 111, CategoryName = "Food" });
-            seedContext.Transaction.Add(new Transaction { Id = 1, AccountId = 1, CategoryId = 1, Amount = 10, Description = "Groceries", Status = TransactionStatus.Completed });
+            seedContext.User.Add(new User { UserId = 111, Email = "user111@example.com", Password = "abcd1234" });
+
+            seedContext.Account.Add(new Account { Id = 1, UserId = 111, AccountName = "User 111 Account" });
             await seedContext.SaveChangesAsync();
         }
 
-        var controller = CreateController(_context, 999);
+        var controller = CreateController(_context, 111);
 
-        var updatePayload = new Transaction
+        var incomingPayLoad = new TransactionCreateDto
         {
-            Id = 1,
-            AccountId = 1,
-            CategoryId = 1,
-            Amount = 20,
-            Description = "Updated Description",
-            Status = TransactionStatus.Completed
+            Amount = 100,
+            CreatedAt = DateTime.Now,
+            AccountId = 1, // Belongs to user 111
+            CategoryId = 999 // Non-existent category
         };
 
-        var result = await controller.Update(1, updatePayload);
-        var badRequestResult = Assert.IsType<NotFoundResult>(result);
+        var result = await controller.Create(incomingPayLoad);
+
+        var badRequestResult = Assert.IsType<ActionResult<TransactionResponseDto>>(result);
+        var badRequest = Assert.IsType<BadRequestObjectResult>(badRequestResult.Result);
+        Assert.Equal("Invalid account or category assignment.", badRequest.Value);
     }
+
+    [Fact]
+    public async Task Create_Fails_WhenAccountAndCategoryBelongToAnotherUser()
+    {
+        using (var seedContext = _context.CreateDbContext())
+        {
+            seedContext.User.AddRange(
+                new User { UserId = 111, Email = "user111@example.com", Password = "abcd1234" },
+                new User { UserId = 999, Email = "user999@example.com", Password = "abcd1234" }
+                );
+            seedContext.Category.Add(new Category { Id = 10, UserId = 999, Name = "Malicious Category" });
+            seedContext.Account.Add(new Account { Id = 20, UserId = 999, AccountName = "Malicious Checking" });
+            await seedContext.SaveChangesAsync();
+        }
+
+        var controller = CreateController(_context, 111);
+
+        var incomingPayLoad = new TransactionCreateDto
+        {
+            Amount = 100,
+            CreatedAt = DateTime.Now,
+            AccountId = 20, // Belongs to user 999
+            CategoryId = 10 // Belongs to user 999
+        };
+
+        var result = await controller.Create(incomingPayLoad);
+
+        var badRequestResult = Assert.IsType<ActionResult<TransactionResponseDto>>(result);
+        var badRequest = Assert.IsType<BadRequestObjectResult>(badRequestResult.Result);
+        Assert.Equal("Invalid account or category assignment.", badRequest.Value);
+    }
+
+    #endregion
+
+    #region Update Tests
 
     [Fact]
     public async Task Update_Succeeds_ForValidUpdate()
     {
         using (var seedContext = _context.CreateDbContext())
         {
+            seedContext.User.Add(new User { UserId = 111, Email = "user111@example.com", Password = "abcd1234" });
+
             seedContext.Account.Add(new Account { Id = 1, UserId = 111, AccountName = "Checking" });
-            seedContext.Category.Add(new Category { Id = 1, UserId = 111, CategoryName = "Food" });
+            seedContext.Category.Add(new Category { Id = 1, UserId = 111, Name = "Food" });
             seedContext.Transaction.Add(new Transaction { Id = 1, AccountId = 1, CategoryId = 1, Amount = 10, Description = "Groceries", Status = TransactionStatus.Completed });
             await seedContext.SaveChangesAsync();
         }
 
         var controller = CreateController(_context, 111);
 
-        var updatePayload = new Transaction
+        var updatePayload = new TransactionCreateDto
         {
-            Id = 1,
             AccountId = 1,
             CategoryId = 1,
             Amount = 20,
@@ -347,7 +441,9 @@ public class TransactionControllerTests
         };
 
         var result = await controller.Update(1, updatePayload);
-        Assert.IsType<NoContentResult>(result);
+        var noContentResult = Assert.IsType<ActionResult<TransactionResponseDto>>(result);
+        var noContent = Assert.IsType<NoContentResult>(noContentResult.Result);
+        Assert.IsType<NoContentResult>(noContent);
 
         using var verifyContext = _context.CreateDbContext();
         var updatedTx = await verifyContext.Transaction.FindAsync(1);
@@ -357,12 +453,152 @@ public class TransactionControllerTests
     }
 
     [Fact]
-    public async Task Archive_Succeeds_ForValidTransaction()
+    public async Task Update_Fails_WhenTransactionIsVoided()
     {
         using (var seedContext = _context.CreateDbContext())
         {
+            seedContext.User.Add(new User { UserId = 111, Email = "user111@example.com", Password = "abcd1234" });
+
             seedContext.Account.Add(new Account { Id = 1, UserId = 111, AccountName = "Checking" });
-            seedContext.Category.Add(new Category { Id = 1, UserId = 111, CategoryName = "Food" });
+            seedContext.Category.Add(new Category { Id = 1, UserId = 111, Name = "Food" });
+            seedContext.Transaction.Add(new Transaction { Id = 1, AccountId = 1, CategoryId = 1, Amount = 10, Description = "Groceries", Status = TransactionStatus.Voided });
+            await seedContext.SaveChangesAsync();
+        }
+
+        var controller = CreateController(_context, 111);
+
+        var updatePayload = new TransactionCreateDto
+        {
+            AccountId = 1,
+            CategoryId = 1,
+            Amount = 20,
+            Description = "Updated Description",
+            Status = TransactionStatus.Completed,
+            Account = new Account { Id = 1, UserId = 111, AccountName = "Checking" }
+        };
+
+        var result = await controller.Update(1, updatePayload);
+
+        var badRequestResult = Assert.IsType<ActionResult<TransactionResponseDto>>(result);
+        var badRequest = Assert.IsType<BadRequestObjectResult>(badRequestResult.Result);
+        Assert.Equal("Cannot update a voided transaction.", badRequest.Value);
+    }
+
+    [Fact]
+    public async Task Update_Fails_WhenAccountIsNull()
+    {
+        using (var seedContext = _context.CreateDbContext())
+        {
+            seedContext.User.Add(new User { UserId = 111, Email = "user111@example.com", Password = "abcd1234" });
+
+            seedContext.Account.Add(new Account { Id = 1, UserId = 111, AccountName = "Checking" });
+            seedContext.Category.Add(new Category { Id = 1, UserId = 111, Name = "Food" });
+            seedContext.Transaction.Add(new Transaction { Id = 1, AccountId = 1, CategoryId = 1, Amount = 10, Description = "Groceries", Status = TransactionStatus.Completed });
+            await seedContext.SaveChangesAsync();
+        }
+
+        var controller = CreateController(_context, 111);
+
+        var updatePayload = new TransactionCreateDto
+        {
+            AccountId = 999, // Non-existent account
+            CategoryId = 1,
+            Amount = 20,
+            Description = "Updated Description",
+            Status = TransactionStatus.Completed
+        };
+
+        var result = await controller.Update(1, updatePayload);
+
+        var badRequestResult = Assert.IsType<ActionResult<TransactionResponseDto>>(result);
+        var badRequest = Assert.IsType<BadRequestObjectResult>(badRequestResult.Result);
+        Assert.Equal("Account not found.", badRequest.Value);
+    }
+
+    [Fact]
+    public async Task Update_Fails_WhenTransactionDoesNotExist()
+    {
+        using (var seedContext = _context.CreateDbContext())
+        {
+            seedContext.User.Add(new User { UserId = 111, Email = "user111@example.com", Password = "abcd1234" });
+
+            seedContext.Account.Add(new Account { Id = 1, UserId = 111, AccountName = "Checking" });
+            seedContext.Category.Add(new Category { Id = 1, UserId = 111, Name = "Food" });
+            seedContext.Transaction.Add(new Transaction { Id = 1, AccountId = 1, CategoryId = 1, Amount = 10, Description = "Groceries", Status = TransactionStatus.Completed });
+            await seedContext.SaveChangesAsync();
+        }
+
+        var controller = CreateController(_context, 111);
+
+        var updatePayload = new TransactionCreateDto
+        {
+            AccountId = 1,
+            CategoryId = 1,
+            Amount = 20,
+            Description = "Updated Description",
+            Status = TransactionStatus.Completed
+        };
+
+        var result = await controller.Update(999, updatePayload);
+
+        var notFoundResult = Assert.IsType<ActionResult<TransactionResponseDto>>(result);
+        var notFound = Assert.IsType<NotFoundResult>(notFoundResult.Result);
+        Assert.IsType<NotFoundResult>(notFound);
+    }
+
+    [Fact]
+    public async Task Update_Fails_WhenTransactionBelongsToAnotherUser()
+    {
+        using (var seedContext = _context.CreateDbContext())
+        {
+            seedContext.User.AddRange(
+                new User { UserId = 111, Email = "user111@example.com", Password = "abcd1234" },
+                new User { UserId = 999, Email = "user999@example.com", Password = "abcd1234" }
+                );
+
+            seedContext.Account.Add(new Account { Id = 1, UserId = 111, AccountName = "Checking" });
+            seedContext.Category.Add(new Category { Id = 1, UserId = 111, Name = "Food" });
+            seedContext.Transaction.Add(new Transaction { Id = 1, AccountId = 1, CategoryId = 1, Amount = 10, Description = "Groceries", Status = TransactionStatus.Completed });
+            
+            seedContext.Account.Add(new Account { Id = 2, UserId = 999, AccountName = "Checking" });
+            seedContext.Category.Add(new Category { Id = 2, UserId = 999, Name = "Car Repair" });
+            seedContext.Transaction.Add(new Transaction { Id = 2, AccountId = 2, CategoryId = 2, Amount = 999, Description = "Hacked Transaction", Status = TransactionStatus.Completed });
+            
+            await seedContext.SaveChangesAsync();
+        }
+
+        var controller = CreateController(_context, 999);
+
+        var updatePayload = new TransactionCreateDto
+        {
+            AccountId = 1,
+            CategoryId = 1,
+            Amount = 20,
+            Description = "Updated Description",
+            Status = TransactionStatus.Completed,
+            Account = new Account { Id = 1, UserId = 999, AccountName = "Checking" }
+        };
+
+        var result = await controller.Update(1, updatePayload);
+
+        var notFoundResult = Assert.IsType<ActionResult<TransactionResponseDto>>(result);
+        var notFound = Assert.IsType<NotFoundResult>(notFoundResult.Result);
+        Assert.IsType<NotFoundResult>(notFound);
+    }
+
+    #endregion
+
+    #region Delete Tests
+
+    [Fact]
+    public async Task Delete_Succeeds_ForValidTransaction()
+    {
+        using (var seedContext = _context.CreateDbContext())
+        {
+            seedContext.User.Add(new User { UserId = 111, Email = "user111@example.com", Password = "abcd1234" });
+
+            seedContext.Account.Add(new Account { Id = 1, UserId = 111, AccountName = "Checking" });
+            seedContext.Category.Add(new Category { Id = 1, UserId = 111, Name = "Food" });
             seedContext.Transaction.Add(new Transaction { Id = 1, AccountId = 1, CategoryId = 1, Amount = 10, Description = "Groceries", Status = TransactionStatus.Completed });
             await seedContext.SaveChangesAsync();
         }
@@ -374,8 +610,18 @@ public class TransactionControllerTests
     }
 
     [Fact]
-    public async Task Archive_Fails_ForNonExistentTransaction()
+    public async Task Delete_Fails_ForNonExistentTransaction()
     {
+        using (var seedContext = _context.CreateDbContext())
+        {
+            seedContext.User.Add(new User { UserId = 111, Email = "user111@example.com", Password = "abcd1234" });
+
+            seedContext.Account.Add(new Account { Id = 1, UserId = 111, AccountName = "Checking" });
+            seedContext.Category.Add(new Category { Id = 1, UserId = 111, Name = "Food" });
+            seedContext.Transaction.Add(new Transaction { Id = 1, AccountId = 1, CategoryId = 1, Amount = 10, Description = "Groceries", Status = TransactionStatus.Completed });
+            await seedContext.SaveChangesAsync();
+        }
+
         var controller = CreateController(_context, 111);
 
         var result = await controller.Archive(999);
@@ -383,12 +629,14 @@ public class TransactionControllerTests
     }
 
     [Fact]
-    public async Task Archive_Fails_ForTransactionBelongingToAnotherUser()
+    public async Task Delete_Fails_ForTransactionBelongingToAnotherUser()
     {
         using (var seedContext = _context.CreateDbContext())
         {
+            seedContext.User.Add(new User { UserId = 111, Email = "user111@example.com", Password = "abcd1234" });
+
             seedContext.Account.Add(new Account { Id = 1, UserId = 111, AccountName = "Checking" });
-            seedContext.Category.Add(new Category { Id = 1, UserId = 111, CategoryName = "Food" });
+            seedContext.Category.Add(new Category { Id = 1, UserId = 111, Name = "Food" });
             seedContext.Transaction.Add(new Transaction { Id = 1, AccountId = 1, CategoryId = 1, Amount = 10, Description = "Groceries", Status = TransactionStatus.Completed });
             await seedContext.SaveChangesAsync();
         }
@@ -398,4 +646,7 @@ public class TransactionControllerTests
         var result = await controller.Archive(1);
         Assert.IsType<NotFoundResult>(result);
     }
+
+    #endregion
+
 }
