@@ -1,5 +1,7 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
+import { usePlaidLink } from "react-plaid-link";
 import { getAccounts, createAccount, updateAccount, deleteAccount } from "../api/accounts";
+import { createLinkToken, exchangePublicToken } from "../api/plaid";
 
 export default function Accounts() {
   const [accounts, setAccounts] = useState([]);
@@ -14,7 +16,8 @@ export default function Accounts() {
 
   const [deletingId, setDeletingId] = useState(null); // Track which account is in "delete confirmation" mode
 
-  const [isAutomated, setIsAutomated] = useState(false);
+  const [linkToken, setLinkToken] = useState(null);
+  const [plaidError, setPlaidError] = useState("");
 
   const ACCOUNT_TYPE_LABELS = [
     "Checking",
@@ -116,6 +119,42 @@ export default function Accounts() {
     } 
   };
 
+  const onPlaidSuccess = useCallback(async (publicToken, metadata) => {
+    try {
+      setPlaidError("");
+      await exchangePublicToken({
+        publicToken,
+        plaidAccountId: metadata.accounts[0]?.id ?? "",
+        institutionName: metadata.institution?.name ?? "Unknown Institution",
+        institutionId: metadata.institution?.institution_id ?? "",
+      });
+      setLinkToken(null);
+      fetchAccountData(); // Pull in the newly synced accounts
+    } catch (err) {
+      setPlaidError(err.response?.data?.message || "Failed to link your bank account. Please try again.");
+    }
+  }, []);
+
+  const { open: openPlaidLink, ready: plaidLinkReady } = usePlaidLink({
+    token: linkToken,
+    onSuccess: onPlaidSuccess,
+  });
+
+  // Auto-open Link as soon as a fresh token is ready
+  useEffect(() => {
+    if (linkToken && plaidLinkReady) openPlaidLink();
+  }, [linkToken, plaidLinkReady, openPlaidLink]);
+
+  const handleConnectBank = async () => {
+    try {
+      setPlaidError("");
+      const token = await createLinkToken();
+      setLinkToken(token);
+    } catch (err) {
+      setPlaidError("Unable to start Plaid Link. Please try again.");
+    }
+  };
+
   const formatCurrency = (value) => {
     return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(value);
   };
@@ -131,7 +170,13 @@ return (
           <h1 className="text-3xl font-bold text-gray-900 tracking-tight">Bank Accounts</h1>
           <p className="mt-1 text-sm text-gray-500">Monitor ledger profiles and cross-platform balances.</p>
         </div>
-        <div className="mt-4 sm:mt-0">
+        <div className="mt-4 sm:mt-0 flex items-center gap-2">
+          <button 
+            onClick={handleConnectBank}
+            className="px-4 py-2 text-sm font-medium text-slate-900 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors shadow-sm cursor-pointer"
+          >
+            🏦 Connect Bank (Plaid)
+          </button>
           <button 
             onClick={handleOpenCreate}
             className="px-4 py-2 text-sm font-medium text-white bg-slate-900 rounded-lg hover:bg-slate-800 transition-colors shadow-sm cursor-pointer"
@@ -140,6 +185,8 @@ return (
           </button>
         </div>
       </div>
+
+      {plaidError && <div className="p-3 bg-red-50 text-red-700 text-sm rounded-xl">{plaidError}</div>}
 
       {/* Quick-Stats Aggregation Ribbons */}
       {accounts.length > 0 && (

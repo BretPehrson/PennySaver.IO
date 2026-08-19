@@ -60,7 +60,7 @@ public class AuthController(IDbContextFactory<PennySaverDbContext> dbContextFact
             new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
         };
 
-        var keyBytes = Encoding.UTF8.GetBytes(_jwtOptions.Key);
+        var keyBytes = Convert.FromBase64String(_jwtOptions.Key);
         var signingKey = new SymmetricSecurityKey(keyBytes);
         var credentials = new SigningCredentials(signingKey, SecurityAlgorithms.HmacSha256);
 
@@ -121,7 +121,7 @@ public class AuthController(IDbContextFactory<PennySaverDbContext> dbContextFact
             new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
         };
 
-        var keyBytes = Encoding.UTF8.GetBytes(_jwtOptions.Key);
+        var keyBytes = Convert.FromBase64String(_jwtOptions.Key);
         var signingKey = new SymmetricSecurityKey(keyBytes);
         var credentials = new SigningCredentials(signingKey, SecurityAlgorithms.HmacSha256);
         var expires = DateTime.UtcNow.AddMinutes(_jwtOptions.ExpiryMinutes);
@@ -176,7 +176,7 @@ public class AuthController(IDbContextFactory<PennySaverDbContext> dbContextFact
         {
             HttpOnly = true,
             Secure = true,
-            SameSite = SameSiteMode.Strict
+            SameSite = SameSiteMode.None
         });
 
         return Ok(new { message = "Logged out successfully." });
@@ -196,7 +196,7 @@ public class AuthController(IDbContextFactory<PennySaverDbContext> dbContextFact
         {
             HttpOnly = true,
             Secure = true,
-            SameSite = SameSiteMode.Strict,
+            SameSite = SameSiteMode.None,
             Expires = DateTime.UtcNow.AddDays(7)
         };
         Response.Cookies.Append("refreshToken", refreshToken, cookieOptions);

@@ -11,15 +11,13 @@ builder.Services.AddDbContextFactory<PennySaverDbContext>(options =>
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowReactApp",
-        policy => policy.WithOrigins("http://localhost:5173")
+        policy => policy.WithOrigins("http://localhost:5173", "http://localhost:5174")
                         .AllowAnyMethod()
                         .AllowAnyHeader()
                         .AllowCredentials());
 });
 
-builder.Services.Configure<JwtOption>(
-    builder.Configuration.GetSection("JwtSettings")
-);
+builder.Services.Configure<JwtOption>(builder.Configuration.GetSection("Jwt"));
 builder.Services.AddOptions<PlaidSettings>()
     .Bind(builder.Configuration.GetSection(PlaidSettings.SectionName))
     .Validate(options => !options.Enabled || 
@@ -34,6 +32,7 @@ if (plaidEnabled)
 {
     builder.Services.AddPlaid(builder.Configuration);
     builder.Services.AddSingleton<IBankSyncService, BankSyncService>();
+    builder.Services.AddSingleton<IPlaidClientWrapper, PlaidClientWrapper>();
 }
 else
 {
@@ -45,9 +44,8 @@ else
     builder.Services.AddSingleton<IBankSyncService, MockBankSyncService>();
 }
 builder.Services.AddScoped<IAccountSyncCoordinator, AccountSyncCoordinator>();
-builder.Services.AddSingleton<IPlaidClientWrapper, PlaidClientWrapper>();
 
-var jwtOptions = builder.Configuration.GetSection("JwtSettings").Get<JwtOption>() ?? throw new InvalidOperationException("JWT Settings are missing.");
+var jwtOptions = builder.Configuration.GetSection("Jwt").Get<JwtOption>() ?? throw new InvalidOperationException("JWT Settings are missing.");
 
 builder.Services.AddAuthentication(options =>
 {
@@ -69,7 +67,7 @@ builder.Services.AddAuthentication(options =>
         ValidAudience = jwtOptions.Audience,
         
         ValidateIssuerSigningKey = true,
-        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtOptions.Key)),
+        IssuerSigningKey = new SymmetricSecurityKey(Convert.FromBase64String(jwtOptions.Key)),
         
         ValidateLifetime = true,
         ClockSkew = TimeSpan.FromSeconds(30),
